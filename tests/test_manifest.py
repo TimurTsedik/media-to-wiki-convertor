@@ -68,6 +68,19 @@ def test_read_video_path_list_supports_relative_and_absolute_paths(tmp_path: Pat
     assert paths == [relative_video, absolute_video]
 
 
+def test_read_video_path_list_strips_leading_icon_when_needed(tmp_path: Path) -> None:
+    base = tmp_path / "videos"
+    base.mkdir()
+    video = base / "lesson.mp4"
+    video.write_text("video", encoding="utf-8")
+    list_path = tmp_path / "video-list.txt"
+    list_path.write_text("\uf008 lesson.mp4\n", encoding="utf-8")
+
+    paths = read_video_path_list(list_path, base, (".mp4",))
+
+    assert paths == [video]
+
+
 def test_write_and_read_manifest_roundtrip(tmp_path: Path) -> None:
     record = VideoRecord(
         video_id="abc123",

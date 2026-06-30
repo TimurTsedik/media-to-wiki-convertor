@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 from typing import Callable
+import unicodedata
 
 
 @dataclass(frozen=True)
@@ -78,14 +79,35 @@ def read_video_path_list(
         if not line or line.startswith("#"):
             continue
 
-        path = Path(line)
-        if not path.is_absolute():
-            path = base_dir / path
+        path = path_from_list_line(line, base_dir)
 
         if path.suffix.lower() in normalized_extensions:
             paths.append(path)
 
     return paths
+
+
+def path_from_list_line(line: str, base_dir: Path) -> Path:
+    path = Path(line)
+    if path.is_absolute():
+        return path
+
+    candidate = base_dir / path
+    if candidate.exists():
+        return candidate
+
+    normalized_line = strip_leading_icon(line)
+    if normalized_line != line:
+        return base_dir / normalized_line
+
+    return candidate
+
+
+def strip_leading_icon(line: str) -> str:
+    stripped = line.lstrip()
+    while stripped and unicodedata.category(stripped[0]) == "Co":
+        stripped = stripped[1:].lstrip()
+    return stripped
 
 
 def build_video_record(path: Path) -> VideoRecord:
