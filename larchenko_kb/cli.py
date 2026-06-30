@@ -49,6 +49,7 @@ from larchenko_kb.topic_index import (
     read_knowledge_payloads,
     write_topic_index,
 )
+from larchenko_kb.vault import build_obsidian_vault
 
 
 def say(message: str) -> None:
@@ -539,6 +540,27 @@ def draft_articles(
     return 1 if failed else 0
 
 
+def build_vault(config: PipelineConfig) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    started_at = time.monotonic()
+    say(f"Vault build start: {config.paths.vault}")
+    try:
+        result = build_obsidian_vault(config.paths.raw_data, config.paths.vault)
+    except ValueError as exc:
+        say(str(exc))
+        return 1
+
+    elapsed = format_elapsed(time.monotonic() - started_at)
+    say(
+        "Vault build complete "
+        f"in {elapsed}: "
+        f"articles={result.articles}, "
+        f"source_notes={result.source_notes}, "
+        f"indexes={result.indexes}"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="larchenko-kb")
     parser.add_argument(
@@ -663,7 +685,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the first article prompt without calling the API.",
     )
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
-    subparsers.add_parser("build-vault", help="Planned Obsidian Markdown generation stage.")
+    subparsers.add_parser("build-vault", help="Build the Obsidian vault from drafted articles.")
     return parser
 
 
@@ -704,6 +726,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_article_plan(config, args.min_sources, args.max_pages)
     if args.command == "draft-articles":
         return draft_articles(config, args.model, args.limit, args.force, args.dry_run)
+    if args.command == "build-vault":
+        return build_vault(config)
 
     planned_stage(args.command)
     return 0
