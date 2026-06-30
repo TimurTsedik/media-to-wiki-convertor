@@ -1,0 +1,17 @@
+[paths]
+video_source = "/Volumes/My Passport/ЛАРЧЕНКО"
+raw_data = "/Users/timur555/Documents/PycharmProjects/Other/larchenko training/raw data"
+vault = "/Users/timur555/Documents/PycharmProjects/Other/larchenko training/larchenko_training_vault"
+
+[discover]
+video_extensions = [".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm"]
+max_depth = 8
+
+[transcription]
+engine = "local-whisper"
+model = "medium"
+language = "ru"
+
+[llm]
+enabled = false
+chunk_minutes = 12

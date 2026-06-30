@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "larchenko-kb"
+version = "0.1.0"
+description = "Pipeline for transcribing Larchenko training videos into an Obsidian knowledge base."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+larchenko-kb = "larchenko_kb.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["larchenko_kb*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
