@@ -4,8 +4,9 @@ from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
 from typing import Callable
+import wave
 
-from larchenko_kb.audio import audio_output_path, is_non_empty_file
+from larchenko_kb.audio import audio_is_valid, audio_output_path, is_non_empty_file
 from larchenko_kb.manifest import VideoRecord
 
 
@@ -111,7 +112,8 @@ def default_mlx_transcriber(audio_path: Path, language: str, model: str) -> list
             "python3 -m pip install mlx-whisper"
         ) from exc
 
-    result = mlx_whisper.transcribe(str(audio_path), path_or_hf_repo=model, language=language)
+    audio = load_pcm16_wav(audio_path)
+    result = mlx_whisper.transcribe(audio, path_or_hf_repo=model, language=language)
     return [
         Segment(
             start=float(segment["start"]),
@@ -120,6 +122,18 @@ def default_mlx_transcriber(audio_path: Path, language: str, model: str) -> list
         )
         for segment in result.get("segments", [])
     ]
+
+
+def load_pcm16_wav(audio_path: Path) -> np.ndarray:
+    import numpy as np
+
+    with wave.open(str(audio_path), "rb") as wav:
+        if wav.getnchannels() != 1 or wav.getsampwidth() != 2 or wav.getframerate() != 16000:
+            raise ValueError(f"Expected mono 16 kHz PCM16 WAV: {audio_path}")
+        frames = wav.readframes(wav.getnframes())
+
+    samples = np.frombuffer(frames, dtype="<i2").astype(np.float32)
+    return samples / 32768.0
 
 
 def write_transcript_files(
@@ -177,6 +191,8 @@ def transcribe_record(
 
     if not is_non_empty_file(audio_path):
         raise FileNotFoundError(f"Missing audio file for {record.video_id}: {audio_path}")
+    if not audio_is_valid(audio_path):
+        raise ValueError(f"Invalid audio file for {record.video_id}: {audio_path}")
 
     append_transcription_log(raw_data, f"run {record.video_id} {audio_path}")
     segments = transcriber(audio_path, language, model)

@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 import time
 
-from larchenko_kb.audio import count_existing_audio, extract_audio_for_record, has_ffmpeg
+from larchenko_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
 from larchenko_kb.config import PipelineConfig, load_config
 from larchenko_kb.manifest import (
     build_video_record,
@@ -116,6 +116,28 @@ def extract_audio(config: PipelineConfig) -> int:
     return extracted
 
 
+def validate_audio(config: PipelineConfig) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    records = read_manifest(config.paths.raw_data)
+    invalid = 0
+    missing = 0
+
+    for index, record in enumerate(records, start=1):
+        audio_path = config.paths.raw_data / "audio" / f"{record.video_id}.wav"
+        if not audio_path.exists():
+            missing += 1
+            print(f"[{index}/{len(records)}] missing {record.video_id}: {audio_path}")
+            continue
+        if audio_is_valid(audio_path):
+            print(f"[{index}/{len(records)}] valid {record.video_id}: {audio_path}")
+        else:
+            invalid += 1
+            print(f"[{index}/{len(records)}] invalid {record.video_id}: {audio_path}")
+
+    print(f"Audio validation complete: valid={len(records) - invalid - missing}, invalid={invalid}, missing={missing}")
+    return 1 if invalid or missing else 0
+
+
 def transcribe(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
@@ -205,6 +227,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Base directory for relative paths. Defaults to configured video_source.",
     )
     subparsers.add_parser("extract-audio", help="Extract mono 16 kHz WAV files with ffmpeg.")
+    subparsers.add_parser("validate-audio", help="Validate extracted WAV files with ffprobe.")
     subparsers.add_parser("transcribe", help="Transcribe WAV files with local mlx-whisper.")
     subparsers.add_parser("chunk", help="Planned transcript chunking stage.")
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
@@ -228,6 +251,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "extract-audio":
         extract_audio(config)
         return 0
+    if args.command == "validate-audio":
+        return validate_audio(config)
     if args.command == "transcribe":
         return transcribe(config)
 

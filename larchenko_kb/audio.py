@@ -24,6 +24,31 @@ def is_non_empty_file(path: Path) -> bool:
     return path.exists() and path.stat().st_size > 0
 
 
+def audio_is_valid(path: Path, timeout_seconds: int = 20) -> bool:
+    if not is_non_empty_file(path):
+        return False
+    try:
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "stream=codec_name,channels,sample_rate",
+                "-of",
+                "default=noprint_wrappers=1",
+                str(path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        return False
+
+
 def count_existing_audio(raw_data: Path) -> int:
     audio_dir = raw_data / "audio"
     if not audio_dir.exists():
@@ -70,7 +95,7 @@ def extract_audio_for_record(
     output_path = audio_output_path(raw_data, record.video_id)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if is_non_empty_file(output_path):
+    if audio_is_valid(output_path):
         append_audio_log(raw_data, f"skip {record.video_id} {output_path}")
         return AudioExtractionResult(
             video_id=record.video_id,
@@ -78,6 +103,9 @@ def extract_audio_for_record(
             output_path=output_path,
             skipped=True,
         )
+
+    if output_path.exists():
+        output_path.unlink()
 
     command = build_ffmpeg_command(input_path, output_path)
     append_audio_log(raw_data, f"run {record.video_id} {' '.join(command)}")

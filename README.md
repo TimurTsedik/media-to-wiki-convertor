@@ -61,6 +61,7 @@ Audio extraction requires `ffmpeg` on `PATH`:
 ```bash
 brew install ffmpeg
 python3 -m larchenko_kb extract-audio
+python3 -m larchenko_kb validate-audio
 ```
 
 If Codex's terminal stalls on the external drive, run heavy disk/video commands from a fresh normal Terminal window. The pipeline state is file-based, so Codex can continue after Terminal finishes:
@@ -82,6 +83,14 @@ python3 -m venv .venv
 Transcript outputs are written to `raw data/transcripts/` as `.json`, `.txt`, and `.srt`.
 
 `mlx-whisper` needs access to Metal. If Codex's terminal reports `No Metal device available`, run transcription from a fresh normal Terminal window.
+
+If transcription reports `Invalid data found` or `Operation timed out` while opening a WAV, validate and rebuild the audio files:
+
+```bash
+python3 -m larchenko_kb validate-audio
+python3 -m larchenko_kb extract-audio
+python3 -m larchenko_kb validate-audio
+```
 
 ## Pipeline Stages
 

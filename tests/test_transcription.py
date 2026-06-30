@@ -1,4 +1,5 @@
 from pathlib import Path
+import wave
 
 from larchenko_kb.manifest import VideoRecord
 from larchenko_kb.transcription import (
@@ -6,6 +7,7 @@ from larchenko_kb.transcription import (
     count_existing_transcripts,
     format_elapsed,
     format_srt,
+    load_pcm16_wav,
     transcribe_records,
     transcribe_record,
     transcript_paths,
@@ -34,6 +36,15 @@ def make_record_with_id(video_id: str) -> VideoRecord:
     )
 
 
+def write_valid_wav(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes((0).to_bytes(2, "little", signed=True))
+
+
 def test_transcript_paths_use_video_id(tmp_path: Path) -> None:
     paths = transcript_paths(tmp_path, "abc123")
 
@@ -54,10 +65,27 @@ def test_format_elapsed_uses_hh_mm_ss() -> None:
     assert format_elapsed(3661.1) == "01:01:01"
 
 
+def test_load_pcm16_wav_returns_float32_samples(tmp_path: Path) -> None:
+    path = tmp_path / "sample.wav"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes((0).to_bytes(2, "little", signed=True))
+        wav.writeframes((32767).to_bytes(2, "little", signed=True))
+
+    audio = load_pcm16_wav(path)
+
+    assert audio.dtype.name == "float32"
+    assert audio.shape == (2,)
+    assert audio[0] == 0
+    assert 0.99 < float(audio[1]) <= 1.0
+
+
 def test_transcribe_record_writes_json_txt_and_srt(tmp_path: Path) -> None:
     audio_path = tmp_path / "audio" / "abc123.wav"
-    audio_path.parent.mkdir(parents=True)
-    audio_path.write_text("wav", encoding="utf-8")
+    write_valid_wav(audio_path)
 
     def fake_transcriber(path: Path, language: str, model: str) -> list[Segment]:
         assert path == audio_path
@@ -86,8 +114,7 @@ def test_transcribe_record_writes_json_txt_and_srt(tmp_path: Path) -> None:
 
 def test_transcribe_record_skips_existing_non_empty_outputs(tmp_path: Path) -> None:
     audio_path = tmp_path / "audio" / "abc123.wav"
-    audio_path.parent.mkdir(parents=True)
-    audio_path.write_text("wav", encoding="utf-8")
+    write_valid_wav(audio_path)
     paths = transcript_paths(tmp_path, "abc123")
     paths.json_path.parent.mkdir(parents=True)
     paths.json_path.write_text("{}", encoding="utf-8")
@@ -127,8 +154,7 @@ def test_count_existing_transcripts_counts_complete_sets(tmp_path: Path) -> None
 def test_transcribe_records_continues_after_one_failure(tmp_path: Path) -> None:
     for video_id in ["skip", "fail", "ok"]:
         audio_path = tmp_path / "audio" / f"{video_id}.wav"
-        audio_path.parent.mkdir(parents=True, exist_ok=True)
-        audio_path.write_text("wav", encoding="utf-8")
+        write_valid_wav(audio_path)
 
     skip_paths = transcript_paths(tmp_path, "skip")
     skip_paths.json_path.parent.mkdir(parents=True)
