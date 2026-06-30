@@ -1,6 +1,7 @@
 from pathlib import Path
+import os
 
-from larchenko_kb.config import load_config
+from larchenko_kb.config import load_config, load_dotenv
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:
@@ -30,3 +31,47 @@ model = "gpt-5.4-mini"
     assert config.discover.video_extensions == (".mp4", ".mov")
     assert config.discover.max_depth == 3
     assert config.llm.model == "gpt-5.4-mini"
+
+
+def test_load_dotenv_sets_missing_values_and_strips_quotes(tmp_path: Path) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        """
+# comment
+OPENAI_API_KEY="secret-value"
+OTHER=value
+""".strip(),
+        encoding="utf-8",
+    )
+    old_key = os.environ.pop("OPENAI_API_KEY", None)
+    old_other = os.environ.pop("OTHER", None)
+    try:
+        loaded = load_dotenv(env_path)
+
+        assert loaded == {"OPENAI_API_KEY": "secret-value", "OTHER": "value"}
+        assert os.environ["OPENAI_API_KEY"] == "secret-value"
+        assert os.environ["OTHER"] == "value"
+    finally:
+        os.environ.pop("OPENAI_API_KEY", None)
+        os.environ.pop("OTHER", None)
+        if old_key is not None:
+            os.environ["OPENAI_API_KEY"] = old_key
+        if old_other is not None:
+            os.environ["OTHER"] = old_other
+
+
+def test_load_dotenv_does_not_override_existing_environment(tmp_path: Path) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text("OPENAI_API_KEY=file-value\n", encoding="utf-8")
+    old_key = os.environ.get("OPENAI_API_KEY")
+    os.environ["OPENAI_API_KEY"] = "shell-value"
+    try:
+        loaded = load_dotenv(env_path)
+
+        assert loaded == {}
+        assert os.environ["OPENAI_API_KEY"] == "shell-value"
+    finally:
+        if old_key is None:
+            os.environ.pop("OPENAI_API_KEY", None)
+        else:
+            os.environ["OPENAI_API_KEY"] = old_key

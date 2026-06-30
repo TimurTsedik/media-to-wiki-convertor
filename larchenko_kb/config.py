@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import tomllib
 
@@ -8,6 +9,7 @@ import tomllib
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.toml"
 EXAMPLE_CONFIG_PATH = PROJECT_ROOT / "config.example.toml"
+DOTENV_PATH = PROJECT_ROOT / ".env"
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,8 @@ class PipelineConfig:
 
 
 def load_config(config_path: Path | None = None) -> PipelineConfig:
+    load_dotenv(DOTENV_PATH)
+
     path = config_path or DEFAULT_CONFIG_PATH
     if not path.exists():
         path = EXAMPLE_CONFIG_PATH
@@ -75,3 +79,32 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
             model=str(llm.get("model", "gpt-5.4-mini")),
         ),
     )
+
+
+def load_dotenv(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+
+    loaded: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = clean_dotenv_value(value)
+        if not key or key in os.environ:
+            continue
+
+        os.environ[key] = value
+        loaded[key] = value
+
+    return loaded
+
+
+def clean_dotenv_value(value: str) -> str:
+    cleaned = value.strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
+        cleaned = cleaned[1:-1]
+    return cleaned.strip()
