@@ -182,7 +182,7 @@ class OpenAIKnowledgeClient:
         endpoint: str = "https://api.openai.com/v1/responses",
         transport: Transport | None = None,
     ) -> None:
-        self.api_key = api_key
+        self.api_key = api_key.strip()
         self.model = model
         self.endpoint = endpoint
         self.transport = transport or default_transport
@@ -190,7 +190,7 @@ class OpenAIKnowledgeClient:
     @classmethod
     def from_env(cls, model: str, api_key_env: str = "OPENAI_API_KEY") -> "OpenAIKnowledgeClient":
         api_key = os.environ.get(api_key_env)
-        if not api_key:
+        if not api_key or not api_key.strip():
             raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell.")
         return cls(api_key=api_key, model=model)
 
@@ -220,6 +220,8 @@ def default_transport(url: str, headers: dict[str, str], payload: dict[str, Any]
     except error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"OpenAI API error {exc.code}: {body}") from exc
+    except ValueError as exc:
+        raise RuntimeError("Invalid OpenAI request. Check OPENAI_API_KEY formatting.") from exc
 
 
 def parse_response_output(response: dict[str, Any]) -> dict[str, Any]:

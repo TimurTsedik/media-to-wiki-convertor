@@ -90,6 +90,24 @@ def test_openai_article_client_builds_responses_request_and_returns_markdown() -
     assert request["payload"]["input"][1]["role"] == "user"
 
 
+def test_openai_article_client_strips_api_key_whitespace() -> None:
+    requests: list[dict] = []
+
+    def fake_transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        requests.append({"headers": headers})
+        return {"output_text": "# Daily / Standup\n\nТекст."}
+
+    client = OpenAIArticleClient(
+        api_key=" secret\n",
+        model="gpt-5.4-mini",
+        transport=fake_transport,
+    )
+
+    client.draft(sample_source_pack(), known_titles=["Daily / Standup"])
+
+    assert requests[0]["headers"]["Authorization"] == "Bearer secret"
+
+
 def test_read_article_pages_loads_pages_json(tmp_path: Path) -> None:
     path = tmp_path / "article_plan" / "pages.json"
     path.parent.mkdir(parents=True)

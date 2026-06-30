@@ -42,7 +42,7 @@ class OpenAIArticleClient:
         endpoint: str = "https://api.openai.com/v1/responses",
         transport: Transport | None = None,
     ) -> None:
-        self.api_key = api_key
+        self.api_key = api_key.strip()
         self.model = model
         self.endpoint = endpoint
         self.transport = transport or default_transport
@@ -50,7 +50,7 @@ class OpenAIArticleClient:
     @classmethod
     def from_env(cls, model: str, api_key_env: str = "OPENAI_API_KEY") -> "OpenAIArticleClient":
         api_key = os.environ.get(api_key_env)
-        if not api_key:
+        if not api_key or not api_key.strip():
             raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell.")
         return cls(api_key=api_key, model=model)
 

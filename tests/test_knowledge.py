@@ -85,6 +85,24 @@ def test_openai_client_builds_responses_api_request_with_json_schema() -> None:
     assert request["payload"]["input"][1]["role"] == "user"
 
 
+def test_openai_client_strips_api_key_whitespace() -> None:
+    requests: list[dict] = []
+
+    def fake_transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        requests.append({"headers": headers})
+        return {"output_text": json.dumps({"ok": True})}
+
+    client = OpenAIKnowledgeClient(
+        api_key=" secret\n",
+        model="gpt-5.4-mini",
+        transport=fake_transport,
+    )
+
+    client.extract(sample_chunk())
+
+    assert requests[0]["headers"]["Authorization"] == "Bearer secret"
+
+
 def test_chunk_payloads_iterates_chunk_json_files(tmp_path: Path) -> None:
     chunk_dir = tmp_path / "chunks" / "abc123"
     chunk_dir.mkdir(parents=True)
