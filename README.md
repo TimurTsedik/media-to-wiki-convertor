@@ -72,12 +72,16 @@ python3 -m larchenko_kb status
 Transcription is local and uses `mlx-whisper` by default:
 
 ```bash
-python3 -m pip install mlx-whisper
-python3 -m larchenko_kb transcribe
-python3 -m larchenko_kb status
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install mlx-whisper
+.venv/bin/python -m larchenko_kb transcribe
+.venv/bin/python -m larchenko_kb status
 ```
 
 Transcript outputs are written to `raw data/transcripts/` as `.json`, `.txt`, and `.srt`.
+
+`mlx-whisper` needs access to Metal. If Codex's terminal reports `No Metal device available`, run transcription from a fresh normal Terminal window.
 
 ## Pipeline Stages
 
