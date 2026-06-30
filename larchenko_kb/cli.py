@@ -5,6 +5,7 @@ from pathlib import Path
 import time
 
 from larchenko_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
+from larchenko_kb.chunks import chunk_transcript_record, count_existing_chunks
 from larchenko_kb.config import PipelineConfig, load_config
 from larchenko_kb.manifest import (
     build_video_record,
@@ -51,6 +52,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"videos:       {len(records)}")
     say(f"audio_wav:    {count_existing_audio(config.paths.raw_data)}")
     say(f"transcripts:  {count_existing_transcripts(config.paths.raw_data)}")
+    say(f"chunks:       {count_existing_chunks(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -208,6 +210,85 @@ def transcribe(config: PipelineConfig) -> int:
     return 1 if failed else 0
 
 
+def chunk_transcripts(config: PipelineConfig, chunk_minutes: int, overlap_seconds: int) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    records = read_manifest(config.paths.raw_data)
+    if not records:
+        say("No videos in manifest.")
+        say("Run `python3 -m larchenko_kb discover` or `import-list` first.")
+        return 0
+
+    chunk_seconds = chunk_minutes * 60
+    if chunk_seconds <= 0:
+        say("--chunk-minutes must be positive.")
+        return 1
+    if overlap_seconds < 0:
+        say("--overlap-seconds must not be negative.")
+        return 1
+    if overlap_seconds >= chunk_seconds:
+        say("--overlap-seconds must be smaller than --chunk-minutes.")
+        return 1
+
+    created = 0
+    skipped = 0
+    failed = 0
+    say(
+        "Chunking settings: "
+        f"chunk_minutes={chunk_minutes}, "
+        f"overlap_seconds={overlap_seconds}"
+    )
+    for index, record in enumerate(records, start=1):
+        started_at = time.monotonic()
+        say(f"[{index}/{len(records)}] chunk start {record.video_id}: {record.title}")
+        try:
+            result = chunk_transcript_record(
+                record,
+                config.paths.raw_data,
+                chunk_seconds=chunk_seconds,
+                overlap_seconds=overlap_seconds,
+                on_progress=lambda message: say(f"  {message}"),
+            )
+        except Exception as exc:
+            failed += 1
+            elapsed = format_elapsed(time.monotonic() - started_at)
+            say(f"[{index}/{len(records)}] chunk failed {record.video_id} in {elapsed}: {exc}")
+            continue
+
+        if result.skipped:
+            skipped += 1
+        else:
+            created += result.created
+        elapsed = format_elapsed(time.monotonic() - started_at)
+        if result.skipped:
+            say(
+                f"[{index}/{len(records)}] chunk skip {record.video_id} "
+                f"in {elapsed}: chunks={result.created}, dir={result.output_dir}"
+            )
+        else:
+            say(
+                f"[{index}/{len(records)}] chunked {record.video_id} "
+                f"in {elapsed}: chunks={result.created}, dir={result.output_dir}"
+            )
+
+    say(f"Chunking complete: created_chunks={created}, skipped_videos={skipped}, failed={failed}")
+    return 1 if failed else 0
+
+
+def add_chunk_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--chunk-minutes",
+        type=int,
+        default=10,
+        help="Target chunk window in minutes. Default: 10.",
+    )
+    parser.add_argument(
+        "--overlap-seconds",
+        type=int,
+        default=120,
+        help="Overlap between adjacent chunks in seconds. Default: 120.",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="larchenko-kb")
     parser.add_argument(
@@ -248,7 +329,13 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("extract-audio", help="Extract mono 16 kHz WAV files with ffmpeg.")
     subparsers.add_parser("validate-audio", help="Validate extracted WAV files with ffprobe.")
     subparsers.add_parser("transcribe", help="Transcribe WAV files with local mlx-whisper.")
-    subparsers.add_parser("chunk", help="Planned transcript chunking stage.")
+    chunk_parser = subparsers.add_parser(
+        "chunk-transcripts",
+        help="Split transcript JSON files into overlapping chunk JSON/Markdown files.",
+    )
+    add_chunk_arguments(chunk_parser)
+    chunk_alias_parser = subparsers.add_parser("chunk", help="Alias for chunk-transcripts.")
+    add_chunk_arguments(chunk_alias_parser)
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Planned Obsidian Markdown generation stage.")
     return parser
@@ -274,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
         return validate_audio(config)
     if args.command == "transcribe":
         return transcribe(config)
+    if args.command in {"chunk-transcripts", "chunk"}:
+        return chunk_transcripts(config, args.chunk_minutes, args.overlap_seconds)
 
     planned_stage(args.command)
     return 0
