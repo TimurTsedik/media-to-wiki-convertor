@@ -63,6 +63,12 @@ brew install ffmpeg
 python3 -m larchenko_kb extract-audio
 ```
 
+If Codex's terminal stalls on the external drive, run heavy disk/video commands from a fresh normal Terminal window. The pipeline state is file-based, so Codex can continue after Terminal finishes:
+
+```bash
+python3 -m larchenko_kb status
+```
+
 ## Pipeline Stages
 
 1. `discover` - scan the read-only video disk and build a manifest.

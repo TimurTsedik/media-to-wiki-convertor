@@ -20,6 +20,17 @@ def audio_output_path(raw_data: Path, video_id: str) -> Path:
     return raw_data / "audio" / f"{video_id}.wav"
 
 
+def is_non_empty_file(path: Path) -> bool:
+    return path.exists() and path.stat().st_size > 0
+
+
+def count_existing_audio(raw_data: Path) -> int:
+    audio_dir = raw_data / "audio"
+    if not audio_dir.exists():
+        return 0
+    return sum(1 for path in audio_dir.glob("*.wav") if is_non_empty_file(path))
+
+
 def build_ffmpeg_command(input_path: Path, output_path: Path) -> list[str]:
     return [
         "ffmpeg",
@@ -59,7 +70,7 @@ def extract_audio_for_record(
     output_path = audio_output_path(raw_data, record.video_id)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if output_path.exists():
+    if is_non_empty_file(output_path):
         append_audio_log(raw_data, f"skip {record.video_id} {output_path}")
         return AudioExtractionResult(
             video_id=record.video_id,

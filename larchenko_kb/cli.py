@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from larchenko_kb.audio import extract_audio_for_record, has_ffmpeg
+from larchenko_kb.audio import count_existing_audio, extract_audio_for_record, has_ffmpeg
 from larchenko_kb.config import PipelineConfig, load_config
 from larchenko_kb.manifest import (
     build_video_record,
@@ -38,6 +38,7 @@ def print_status(config: PipelineConfig) -> None:
     print(f"vault:        {config.paths.vault}")
     print(f"manifest:     {manifest_path(config.paths.raw_data)}")
     print(f"videos:       {len(records)}")
+    print(f"audio_wav:    {count_existing_audio(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
