@@ -9,6 +9,7 @@ from larchenko_kb.manifest import (
     build_video_record,
     iter_video_files,
     manifest_path,
+    read_video_path_list,
     read_manifest,
     write_manifest,
 )
@@ -59,6 +60,17 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
     records = [build_video_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
     print(f"Discovered {len(records)} video file(s).")
+    print(f"Wrote manifest: {output_path}")
+    return len(records)
+
+
+def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | None = None) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    base = base_dir or config.paths.video_source
+    videos = read_video_path_list(list_path, base, config.discover.video_extensions)
+    records = [build_video_record(path) for path in videos]
+    output_path = write_manifest(records, config.paths.raw_data)
+    print(f"Imported {len(records)} video file(s).")
     print(f"Wrote manifest: {output_path}")
     return len(records)
 
@@ -116,6 +128,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override video source directory for this run.",
     )
+    import_parser = subparsers.add_parser(
+        "import-list",
+        help="Build manifest from a text file containing one video path per line.",
+    )
+    import_parser.add_argument(
+        "--file",
+        type=Path,
+        required=True,
+        help="Text file with absolute paths or names relative to --base.",
+    )
+    import_parser.add_argument(
+        "--base",
+        type=Path,
+        default=None,
+        help="Base directory for relative paths. Defaults to configured video_source.",
+    )
     subparsers.add_parser("extract-audio", help="Extract mono 16 kHz WAV files with ffmpeg.")
     subparsers.add_parser("transcribe", help="Planned local Whisper transcription stage.")
     subparsers.add_parser("chunk", help="Planned transcript chunking stage.")
@@ -133,6 +161,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "discover":
         discover(config, args.source)
+        return 0
+    if args.command == "import-list":
+        import_video_list(config, args.file, args.base)
         return 0
     if args.command == "extract-audio":
         extract_audio(config)

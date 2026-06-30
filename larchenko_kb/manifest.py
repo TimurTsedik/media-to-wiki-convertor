@@ -65,6 +65,29 @@ def iter_video_files(
     return sorted(matches, key=lambda item: str(item).casefold())
 
 
+def read_video_path_list(
+    list_path: Path,
+    base_dir: Path,
+    extensions: tuple[str, ...],
+) -> list[Path]:
+    normalized_extensions = {ext.lower() for ext in extensions}
+    paths: list[Path] = []
+
+    for raw_line in list_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        path = Path(line)
+        if not path.is_absolute():
+            path = base_dir / path
+
+        if path.suffix.lower() in normalized_extensions:
+            paths.append(path)
+
+    return paths
+
+
 def build_video_record(path: Path) -> VideoRecord:
     stat = path.stat()
     return VideoRecord(

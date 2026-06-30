@@ -46,6 +46,16 @@ If the external disk is slow to list, point discovery at a narrower subfolder:
 python3 -m larchenko_kb discover --source "/Volumes/My Passport/ЛАРЧЕНКО/<subfolder>"
 ```
 
+If Codex cannot list the external disk but your Terminal can, create a text list in Terminal and import it:
+
+```bash
+cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
+ls -1 "/Volumes/My Passport/ЛАРЧЕНКО" > "raw data/manual_video_list.txt"
+python3 -m larchenko_kb import-list \
+  --file "raw data/manual_video_list.txt" \
+  --base "/Volumes/My Passport/ЛАРЧЕНКО"
+```
+
 Audio extraction requires `ffmpeg` on `PATH`:
 
 ```bash

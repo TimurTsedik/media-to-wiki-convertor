@@ -3,6 +3,7 @@ from pathlib import Path
 from larchenko_kb.manifest import (
     VideoRecord,
     iter_video_files,
+    read_video_path_list,
     read_manifest,
     stable_video_id,
     write_manifest,
@@ -37,6 +38,34 @@ def test_iter_video_files_reports_directory_progress(tmp_path: Path) -> None:
     assert matches == [nested / "lesson.mov"]
     assert tmp_path in visited
     assert nested in visited
+
+
+def test_read_video_path_list_supports_relative_and_absolute_paths(tmp_path: Path) -> None:
+    base = tmp_path / "videos"
+    base.mkdir()
+    relative_video = base / "lesson 1.mp4"
+    absolute_video = tmp_path / "external.mov"
+    ignored_file = base / "notes.txt"
+    relative_video.write_text("video", encoding="utf-8")
+    absolute_video.write_text("video", encoding="utf-8")
+    ignored_file.write_text("notes", encoding="utf-8")
+    list_path = tmp_path / "video-list.txt"
+    list_path.write_text(
+        "\n".join(
+            [
+                "# comments are ignored",
+                "lesson 1.mp4",
+                str(absolute_video),
+                "notes.txt",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    paths = read_video_path_list(list_path, base, (".mp4", ".mov"))
+
+    assert paths == [relative_video, absolute_video]
 
 
 def test_write_and_read_manifest_roundtrip(tmp_path: Path) -> None:
