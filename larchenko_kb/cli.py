@@ -22,6 +22,10 @@ from larchenko_kb.transcription import (
 )
 
 
+def say(message: str) -> None:
+    print(message, flush=True)
+
+
 def ensure_raw_layout(raw_data: Path) -> None:
     for relative in [
         "manifest",
@@ -39,14 +43,14 @@ def print_status(config: PipelineConfig) -> None:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
 
-    print("Larchenko KB pipeline")
-    print(f"video_source: {config.paths.video_source}")
-    print(f"raw_data:     {config.paths.raw_data}")
-    print(f"vault:        {config.paths.vault}")
-    print(f"manifest:     {manifest_path(config.paths.raw_data)}")
-    print(f"videos:       {len(records)}")
-    print(f"audio_wav:    {count_existing_audio(config.paths.raw_data)}")
-    print(f"transcripts:  {count_existing_transcripts(config.paths.raw_data)}")
+    say("Larchenko KB pipeline")
+    say(f"video_source: {config.paths.video_source}")
+    say(f"raw_data:     {config.paths.raw_data}")
+    say(f"vault:        {config.paths.vault}")
+    say(f"manifest:     {manifest_path(config.paths.raw_data)}")
+    say(f"videos:       {len(records)}")
+    say(f"audio_wav:    {count_existing_audio(config.paths.raw_data)}")
+    say(f"transcripts:  {count_existing_transcripts(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -58,7 +62,7 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
         nonlocal scanned_dirs
         scanned_dirs += 1
         if scanned_dirs == 1 or scanned_dirs % 25 == 0:
-            print(f"Scanning directory {scanned_dirs}: {path}", flush=True)
+            say(f"Scanning directory {scanned_dirs}: {path}")
 
     videos = iter_video_files(
         source,
@@ -68,8 +72,8 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
     )
     records = [build_video_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
-    print(f"Discovered {len(records)} video file(s).")
-    print(f"Wrote manifest: {output_path}")
+    say(f"Discovered {len(records)} video file(s).")
+    say(f"Wrote manifest: {output_path}")
     return len(records)
 
 
@@ -79,40 +83,47 @@ def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | 
     videos = read_video_path_list(list_path, base, config.discover.video_extensions)
     records = [build_video_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
-    print(f"Imported {len(records)} video file(s).")
-    print(f"Wrote manifest: {output_path}")
+    say(f"Imported {len(records)} video file(s).")
+    say(f"Wrote manifest: {output_path}")
     return len(records)
 
 
 def planned_stage(name: str) -> None:
-    print(f"{name} is planned, but not implemented yet.")
-    print("Run `python3 -m larchenko_kb discover` first to create the video manifest.")
+    say(f"{name} is planned, but not implemented yet.")
+    say("Run `python3 -m larchenko_kb discover` first to create the video manifest.")
 
 
 def extract_audio(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
     if not records:
-        print("No videos in manifest.")
-        print("Run `python3 -m larchenko_kb discover` first.")
+        say("No videos in manifest.")
+        say("Run `python3 -m larchenko_kb discover` first.")
         return 0
     if not has_ffmpeg():
-        print("ffmpeg is not installed or is not available on PATH.")
-        print("Install it before running audio extraction, for example: `brew install ffmpeg`.")
+        say("ffmpeg is not installed or is not available on PATH.")
+        say("Install it before running audio extraction, for example: `brew install ffmpeg`.")
         return 1
 
     extracted = 0
     skipped = 0
     for index, record in enumerate(records, start=1):
+        started_at = time.monotonic()
+        audio_path = config.paths.raw_data / "audio" / f"{record.video_id}.wav"
+        say(f"[{index}/{len(records)}] audio start {record.video_id}: {audio_path}")
         result = extract_audio_for_record(record, config.paths.raw_data)
+        elapsed = format_elapsed(time.monotonic() - started_at)
         if result.skipped:
             skipped += 1
-            print(f"[{index}/{len(records)}] skip {record.video_id}: {result.output_path}")
+            say(f"[{index}/{len(records)}] audio skip {record.video_id} in {elapsed}: {result.output_path}")
         else:
             extracted += 1
-            print(f"[{index}/{len(records)}] extracted {record.video_id}: {result.output_path}")
+            say(
+                f"[{index}/{len(records)}] audio extracted {record.video_id} "
+                f"in {elapsed}: {result.output_path}"
+            )
 
-    print(f"Audio extraction complete: extracted={extracted}, skipped={skipped}")
+    say(f"Audio extraction complete: extracted={extracted}, skipped={skipped}")
     return extracted
 
 
@@ -126,15 +137,15 @@ def validate_audio(config: PipelineConfig) -> int:
         audio_path = config.paths.raw_data / "audio" / f"{record.video_id}.wav"
         if not audio_path.exists():
             missing += 1
-            print(f"[{index}/{len(records)}] missing {record.video_id}: {audio_path}")
+            say(f"[{index}/{len(records)}] missing {record.video_id}: {audio_path}")
             continue
         if audio_is_valid(audio_path):
-            print(f"[{index}/{len(records)}] valid {record.video_id}: {audio_path}")
+            say(f"[{index}/{len(records)}] valid {record.video_id}: {audio_path}")
         else:
             invalid += 1
-            print(f"[{index}/{len(records)}] invalid {record.video_id}: {audio_path}")
+            say(f"[{index}/{len(records)}] invalid {record.video_id}: {audio_path}")
 
-    print(f"Audio validation complete: valid={len(records) - invalid - missing}, invalid={invalid}, missing={missing}")
+    say(f"Audio validation complete: valid={len(records) - invalid - missing}, invalid={invalid}, missing={missing}")
     return 1 if invalid or missing else 0
 
 
@@ -142,20 +153,28 @@ def transcribe(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
     if not records:
-        print("No videos in manifest.")
-        print("Run `python3 -m larchenko_kb discover` or `import-list` first.")
+        say("No videos in manifest.")
+        say("Run `python3 -m larchenko_kb discover` or `import-list` first.")
         return 0
     if config.transcription.engine != "mlx-whisper":
-        print(f"Unsupported transcription engine: {config.transcription.engine}")
-        print("Supported engine: mlx-whisper")
+        say(f"Unsupported transcription engine: {config.transcription.engine}")
+        say("Supported engine: mlx-whisper")
         return 1
 
     created = 0
     skipped = 0
     failed = 0
+    say(
+        "Transcription settings: "
+        f"engine={config.transcription.engine}, "
+        f"model={config.transcription.model}, "
+        f"language={config.transcription.language}"
+    )
     batch_started_at = time.monotonic()
     for index, record in enumerate(records, start=1):
         item_started_at = time.monotonic()
+        audio_path = config.paths.raw_data / "audio" / f"{record.video_id}.wav"
+        say(f"[{index}/{len(records)}] transcribe start {record.video_id}: {audio_path}")
         try:
             result = transcribe_record(
                 record,
@@ -167,22 +186,22 @@ def transcribe(config: PipelineConfig) -> int:
             failed += 1
             elapsed = format_elapsed(time.monotonic() - item_started_at)
             append_transcription_log(config.paths.raw_data, f"fail {record.video_id} {exc}")
-            print(f"[{index}/{len(records)}] failed {record.video_id} in {elapsed}: {exc}")
+            say(f"[{index}/{len(records)}] transcribe failed {record.video_id} in {elapsed}: {exc}")
             continue
 
         elapsed = format_elapsed(time.monotonic() - item_started_at)
         if result.skipped:
             skipped += 1
-            print(f"[{index}/{len(records)}] skip {record.video_id} in {elapsed}: {result.paths.txt_path}")
+            say(f"[{index}/{len(records)}] transcribe skip {record.video_id} in {elapsed}: {result.paths.txt_path}")
         else:
             created += 1
-            print(
+            say(
                 f"[{index}/{len(records)}] transcribed {record.video_id} "
                 f"in {elapsed}: {result.paths.txt_path}"
             )
 
     total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
-    print(
+    say(
         f"Transcription complete in {total_elapsed}: "
         f"created={created}, skipped={skipped}, failed={failed}"
     )

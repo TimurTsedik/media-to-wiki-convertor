@@ -112,8 +112,12 @@ def default_mlx_transcriber(audio_path: Path, language: str, model: str) -> list
             "python3 -m pip install mlx-whisper"
         ) from exc
 
+    print(f"  loading wav into memory: {audio_path}", flush=True)
     audio = load_pcm16_wav(audio_path)
+    print(f"  wav loaded: samples={audio.shape[0]}", flush=True)
+    print(f"  running mlx-whisper model={model} language={language}", flush=True)
     result = mlx_whisper.transcribe(audio, path_or_hf_repo=model, language=language)
+    print(f"  model finished: segments={len(result.get('segments', []))}", flush=True)
     return [
         Segment(
             start=float(segment["start"]),
