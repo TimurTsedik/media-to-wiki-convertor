@@ -13,6 +13,14 @@ from larchenko_kb.article_plan import (
 from larchenko_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
 from larchenko_kb.chunks import chunk_transcript_record, count_existing_chunks
 from larchenko_kb.config import PipelineConfig, load_config
+from larchenko_kb.draft_articles import (
+    OpenAIArticleClient,
+    build_article_prompt,
+    count_draft_articles,
+    draft_article,
+    read_article_pages,
+    select_source_packs,
+)
 from larchenko_kb.knowledge import (
     OpenAIKnowledgeClient,
     build_extraction_prompt,
@@ -56,6 +64,7 @@ def ensure_raw_layout(raw_data: Path) -> None:
         "extracted_knowledge",
         "topic_index",
         "article_plan",
+        "draft_articles",
         "summaries/chunks",
         "summaries/videos",
         "logs",
@@ -79,6 +88,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"knowledge:    {count_existing_knowledge(config.paths.raw_data)}")
     say(f"topic_pages:  {count_topic_index_pages(config.paths.raw_data)}")
     say(f"article_pages:{count_article_plan_pages(config.paths.raw_data)}")
+    say(f"draft_articles:{count_draft_articles(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -449,6 +459,86 @@ def build_article_plan(config: PipelineConfig, min_sources: int, max_pages: int 
     return 0
 
 
+def draft_articles(
+    config: PipelineConfig,
+    model: str | None,
+    limit: int | None,
+    force: bool,
+    dry_run: bool,
+) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    try:
+        pages = read_article_pages(config.paths.raw_data)
+        source_packs = select_source_packs(config.paths.raw_data, pages, limit=limit)
+    except ValueError as exc:
+        say(str(exc))
+        return 1
+
+    if not pages:
+        say("No article plan pages found.")
+        say("Run `python3 -m larchenko_kb build-article-plan` first.")
+        return 0
+    if not source_packs:
+        say("No source packs found.")
+        say("Run `python3 -m larchenko_kb build-article-plan` first.")
+        return 0
+
+    selected_model = model or config.llm.model
+    known_titles = [str(page["title"]) for page in pages]
+    say(
+        "Draft articles settings: "
+        f"model={selected_model}, articles={len(source_packs)}, force={force}, dry_run={dry_run}"
+    )
+
+    if dry_run:
+        say(build_article_prompt(source_packs[0], known_titles))
+        return 0
+
+    try:
+        client = OpenAIArticleClient.from_env(model=selected_model)
+    except RuntimeError as exc:
+        say(str(exc))
+        return 1
+
+    created = 0
+    skipped = 0
+    failed = 0
+    batch_started_at = time.monotonic()
+    for index, source_pack in enumerate(source_packs, start=1):
+        started_at = time.monotonic()
+        article = source_pack["article"]
+        title = str(article["title"])
+        say(f"[{index}/{len(source_packs)}] draft start {title}")
+        try:
+            result = draft_article(
+                config.paths.raw_data,
+                source_pack,
+                client,
+                known_titles,
+                force=force,
+            )
+        except Exception as exc:
+            failed += 1
+            elapsed = format_elapsed(time.monotonic() - started_at)
+            say(f"[{index}/{len(source_packs)}] draft failed {title} in {elapsed}: {exc}")
+            continue
+
+        elapsed = format_elapsed(time.monotonic() - started_at)
+        if result.skipped:
+            skipped += 1
+            say(f"[{index}/{len(source_packs)}] draft skip {title} in {elapsed}: {result.output_path}")
+        else:
+            created += 1
+            say(f"[{index}/{len(source_packs)}] drafted {title} in {elapsed}: {result.output_path}")
+
+    total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
+    say(
+        f"Draft articles complete in {total_elapsed}: "
+        f"created={created}, skipped={skipped}, failed={failed}"
+    )
+    return 1 if failed else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="larchenko-kb")
     parser.add_argument(
@@ -547,6 +637,31 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Keep only the top N article pages by deterministic score.",
     )
+    draft_articles_parser = subparsers.add_parser(
+        "draft-articles",
+        help="Draft Markdown wiki articles from article source packs with OpenAI.",
+    )
+    draft_articles_parser.add_argument(
+        "--model",
+        default=None,
+        help="OpenAI model. Defaults to [llm].model in config.",
+    )
+    draft_articles_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Draft only the first N articles from article_plan/pages.json.",
+    )
+    draft_articles_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild existing draft article Markdown files.",
+    )
+    draft_articles_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the first article prompt without calling the API.",
+    )
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Planned Obsidian Markdown generation stage.")
     return parser
@@ -587,6 +702,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_topic_index(config)
     if args.command == "build-article-plan":
         return build_article_plan(config, args.min_sources, args.max_pages)
+    if args.command == "draft-articles":
+        return draft_articles(config, args.model, args.limit, args.force, args.dry_run)
 
     planned_stage(args.command)
     return 0

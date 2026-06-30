@@ -141,3 +141,16 @@ def test_write_topic_index_writes_summary_files_and_page_files(tmp_path: Path) -
     assert (output_dir / "pages.json").exists()
     assert (output_dir / "pages" / "daily-standup.json").exists()
     assert count_topic_index_pages(tmp_path) == 1
+
+
+def test_count_topic_index_pages_prefers_pages_json_over_stale_files(tmp_path: Path) -> None:
+    pages_dir = tmp_path / "topic_index" / "pages"
+    pages_dir.mkdir(parents=True)
+    (pages_dir / "stale-a.json").write_text("{}", encoding="utf-8")
+    (pages_dir / "stale-b.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "topic_index" / "pages.json").write_text(
+        json.dumps([{"title": "Fresh"}]),
+        encoding="utf-8",
+    )
+
+    assert count_topic_index_pages(tmp_path) == 1

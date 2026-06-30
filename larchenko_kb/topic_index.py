@@ -4,6 +4,7 @@ from collections import Counter
 import json
 from pathlib import Path
 import re
+import shutil
 from typing import Any
 
 
@@ -201,10 +202,9 @@ def preferred_title(variants: list[str]) -> str:
 def write_topic_index(raw_data: Path, index: dict[str, Any]) -> Path:
     output_dir = raw_data / "topic_index"
     pages_dir = output_dir / "pages"
+    if pages_dir.exists():
+        shutil.rmtree(pages_dir)
     pages_dir.mkdir(parents=True, exist_ok=True)
-
-    for stale_path in pages_dir.glob("*.json"):
-        stale_path.unlink()
 
     write_json(output_dir / "summary.json", index["summary"])
     write_json(output_dir / "domains.json", index["domains"])
@@ -225,6 +225,10 @@ def write_json(path: Path, data: Any) -> None:
 
 
 def count_topic_index_pages(raw_data: Path) -> int:
+    pages_json = raw_data / "topic_index" / "pages.json"
+    if pages_json.exists():
+        return len(json.loads(pages_json.read_text(encoding="utf-8")))
+
     pages_dir = raw_data / "topic_index" / "pages"
     if not pages_dir.exists():
         return 0
