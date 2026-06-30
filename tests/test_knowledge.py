@@ -103,6 +103,15 @@ def test_openai_client_strips_api_key_whitespace() -> None:
     assert requests[0]["headers"]["Authorization"] == "Bearer secret"
 
 
+def test_openai_client_rejects_placeholder_api_key() -> None:
+    try:
+        OpenAIKnowledgeClient(api_key="sk-proj-ТВОЙ_НОВЫЙ_КЛЮЧ", model="gpt-5.4-mini")
+    except RuntimeError as exc:
+        assert "OPENAI_API_KEY" in str(exc)
+    else:
+        raise AssertionError("placeholder OPENAI_API_KEY was accepted")
+
+
 def test_chunk_payloads_iterates_chunk_json_files(tmp_path: Path) -> None:
     chunk_dir = tmp_path / "chunks" / "abc123"
     chunk_dir.mkdir(parents=True)

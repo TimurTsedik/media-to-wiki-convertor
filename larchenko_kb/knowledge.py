@@ -168,6 +168,28 @@ KNOWLEDGE_SCHEMA: dict[str, Any] = {
 Transport = Callable[[str, dict[str, str], dict[str, Any]], dict[str, Any]]
 
 
+def validate_openai_api_key(api_key: str, api_key_env: str = "OPENAI_API_KEY") -> str:
+    cleaned = api_key.strip()
+    if not cleaned:
+        raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell or .env.")
+    if any(char.isspace() for char in cleaned):
+        raise RuntimeError(f"Invalid {api_key_env}: remove spaces or line breaks from the key.")
+    try:
+        cleaned.encode("ascii")
+    except UnicodeEncodeError as exc:
+        raise RuntimeError(
+            f"Invalid {api_key_env}: replace the placeholder with a real OpenAI API key."
+        ) from exc
+
+    lowered = cleaned.lower()
+    placeholder_markers = ("your-new-key", "your_new_key", "placeholder", "example")
+    if any(marker in lowered for marker in placeholder_markers):
+        raise RuntimeError(
+            f"Invalid {api_key_env}: replace the placeholder with a real OpenAI API key."
+        )
+    return cleaned
+
+
 @dataclass(frozen=True)
 class KnowledgeExtractionResult:
     output_path: Path
@@ -182,7 +204,7 @@ class OpenAIKnowledgeClient:
         endpoint: str = "https://api.openai.com/v1/responses",
         transport: Transport | None = None,
     ) -> None:
-        self.api_key = api_key.strip()
+        self.api_key = validate_openai_api_key(api_key)
         self.model = model
         self.endpoint = endpoint
         self.transport = transport or default_transport
@@ -190,8 +212,9 @@ class OpenAIKnowledgeClient:
     @classmethod
     def from_env(cls, model: str, api_key_env: str = "OPENAI_API_KEY") -> "OpenAIKnowledgeClient":
         api_key = os.environ.get(api_key_env)
-        if not api_key or not api_key.strip():
-            raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell.")
+        if api_key is None:
+            raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell or .env.")
+        validate_openai_api_key(api_key, api_key_env)
         return cls(api_key=api_key, model=model)
 
     def extract(self, chunk: dict[str, Any]) -> dict[str, Any]:

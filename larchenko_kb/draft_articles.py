@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from larchenko_kb.knowledge import default_transport
+from larchenko_kb.knowledge import default_transport, validate_openai_api_key
 
 
 ARTICLE_SYSTEM_PROMPT = """Ты пишешь учебные Markdown-статьи для Obsidian wiki по материалам тренинга.
@@ -42,7 +42,7 @@ class OpenAIArticleClient:
         endpoint: str = "https://api.openai.com/v1/responses",
         transport: Transport | None = None,
     ) -> None:
-        self.api_key = api_key.strip()
+        self.api_key = validate_openai_api_key(api_key)
         self.model = model
         self.endpoint = endpoint
         self.transport = transport or default_transport
@@ -50,8 +50,9 @@ class OpenAIArticleClient:
     @classmethod
     def from_env(cls, model: str, api_key_env: str = "OPENAI_API_KEY") -> "OpenAIArticleClient":
         api_key = os.environ.get(api_key_env)
-        if not api_key or not api_key.strip():
-            raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell.")
+        if api_key is None:
+            raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell or .env.")
+        validate_openai_api_key(api_key, api_key_env)
         return cls(api_key=api_key, model=model)
 
     def draft(self, source_pack: dict[str, Any], known_titles: list[str]) -> str:

@@ -108,6 +108,15 @@ def test_openai_article_client_strips_api_key_whitespace() -> None:
     assert requests[0]["headers"]["Authorization"] == "Bearer secret"
 
 
+def test_openai_article_client_rejects_placeholder_api_key() -> None:
+    try:
+        OpenAIArticleClient(api_key="sk-proj-ТВОЙ_НОВЫЙ_КЛЮЧ", model="gpt-5.4-mini")
+    except RuntimeError as exc:
+        assert "OPENAI_API_KEY" in str(exc)
+    else:
+        raise AssertionError("placeholder OPENAI_API_KEY was accepted")
+
+
 def test_read_article_pages_loads_pages_json(tmp_path: Path) -> None:
     path = tmp_path / "article_plan" / "pages.json"
     path.parent.mkdir(parents=True)
