@@ -13,7 +13,11 @@ from larchenko_kb.manifest import (
     read_manifest,
     write_manifest,
 )
-from larchenko_kb.transcription import count_existing_transcripts, transcribe_record
+from larchenko_kb.transcription import (
+    append_transcription_log,
+    count_existing_transcripts,
+    transcribe_record,
+)
 
 
 def ensure_raw_layout(raw_data: Path) -> None:
@@ -124,13 +128,21 @@ def transcribe(config: PipelineConfig) -> int:
 
     created = 0
     skipped = 0
+    failed = 0
     for index, record in enumerate(records, start=1):
-        result = transcribe_record(
-            record,
-            config.paths.raw_data,
-            language=config.transcription.language,
-            model=config.transcription.model,
-        )
+        try:
+            result = transcribe_record(
+                record,
+                config.paths.raw_data,
+                language=config.transcription.language,
+                model=config.transcription.model,
+            )
+        except Exception as exc:
+            failed += 1
+            append_transcription_log(config.paths.raw_data, f"fail {record.video_id} {exc}")
+            print(f"[{index}/{len(records)}] failed {record.video_id}: {exc}")
+            continue
+
         if result.skipped:
             skipped += 1
             print(f"[{index}/{len(records)}] skip {record.video_id}: {result.paths.txt_path}")
@@ -138,8 +150,8 @@ def transcribe(config: PipelineConfig) -> int:
             created += 1
             print(f"[{index}/{len(records)}] transcribed {record.video_id}: {result.paths.txt_path}")
 
-    print(f"Transcription complete: created={created}, skipped={skipped}")
-    return created
+    print(f"Transcription complete: created={created}, skipped={skipped}, failed={failed}")
+    return 1 if failed else 0
 
 
 def build_parser() -> argparse.ArgumentParser:

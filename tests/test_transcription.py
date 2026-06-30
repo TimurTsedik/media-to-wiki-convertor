@@ -5,6 +5,7 @@ from larchenko_kb.transcription import (
     Segment,
     count_existing_transcripts,
     format_srt,
+    transcribe_records,
     transcribe_record,
     transcript_paths,
 )
@@ -15,6 +16,17 @@ def make_record() -> VideoRecord:
         video_id="abc123",
         path="/videos/lesson.mp4",
         title="lesson",
+        extension=".mp4",
+        size_bytes=42,
+        modified_at="2026-06-30T00:00:00+00:00",
+    )
+
+
+def make_record_with_id(video_id: str) -> VideoRecord:
+    return VideoRecord(
+        video_id=video_id,
+        path=f"/videos/{video_id}.mp4",
+        title=video_id,
         extension=".mp4",
         size_bytes=42,
         modified_at="2026-06-30T00:00:00+00:00",
@@ -103,3 +115,35 @@ def test_count_existing_transcripts_counts_complete_sets(tmp_path: Path) -> None
     incomplete.json_path.write_text("{}", encoding="utf-8")
 
     assert count_existing_transcripts(tmp_path) == 1
+
+
+def test_transcribe_records_continues_after_one_failure(tmp_path: Path) -> None:
+    for video_id in ["skip", "fail", "ok"]:
+        audio_path = tmp_path / "audio" / f"{video_id}.wav"
+        audio_path.parent.mkdir(parents=True, exist_ok=True)
+        audio_path.write_text("wav", encoding="utf-8")
+
+    skip_paths = transcript_paths(tmp_path, "skip")
+    skip_paths.json_path.parent.mkdir(parents=True)
+    skip_paths.json_path.write_text("{}", encoding="utf-8")
+    skip_paths.txt_path.write_text("text", encoding="utf-8")
+    skip_paths.srt_path.write_text("srt", encoding="utf-8")
+
+    def fake_transcriber(path: Path, language: str, model: str) -> list[Segment]:
+        if path.name == "fail.wav":
+            raise RuntimeError("temporary timeout")
+        return [Segment(start=0, end=1, text=f"done {path.stem}")]
+
+    result = transcribe_records(
+        [make_record_with_id("skip"), make_record_with_id("fail"), make_record_with_id("ok")],
+        tmp_path,
+        language="ru",
+        model="medium",
+        transcriber=fake_transcriber,
+    )
+
+    assert result.created == 1
+    assert result.skipped == 1
+    assert result.failed == 1
+    assert result.failures == [("fail", "temporary timeout")]
+    assert transcript_paths(tmp_path, "ok").txt_path.read_text(encoding="utf-8") == "done ok\n"

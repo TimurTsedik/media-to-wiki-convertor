@@ -31,6 +31,14 @@ class TranscriptionResult:
     skipped: bool
 
 
+@dataclass(frozen=True)
+class TranscriptionBatchResult:
+    created: int
+    skipped: int
+    failed: int
+    failures: list[tuple[str, str]]
+
+
 Transcriber = Callable[[Path, str, str], list[Segment]]
 
 
@@ -171,4 +179,43 @@ def transcribe_record(
         audio_path=audio_path,
         paths=paths,
         skipped=False,
+    )
+
+
+def transcribe_records(
+    records: list[VideoRecord],
+    raw_data: Path,
+    language: str,
+    model: str,
+    transcriber: Transcriber = default_mlx_transcriber,
+) -> TranscriptionBatchResult:
+    created = 0
+    skipped = 0
+    failures: list[tuple[str, str]] = []
+
+    for record in records:
+        try:
+            result = transcribe_record(
+                record,
+                raw_data,
+                language=language,
+                model=model,
+                transcriber=transcriber,
+            )
+        except Exception as exc:
+            message = str(exc)
+            failures.append((record.video_id, message))
+            append_transcription_log(raw_data, f"fail {record.video_id} {message}")
+            continue
+
+        if result.skipped:
+            skipped += 1
+        else:
+            created += 1
+
+    return TranscriptionBatchResult(
+        created=created,
+        skipped=skipped,
+        failed=len(failures),
+        failures=failures,
     )
