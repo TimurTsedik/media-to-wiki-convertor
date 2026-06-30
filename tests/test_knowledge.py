@@ -8,6 +8,7 @@ from larchenko_kb.knowledge import (
     chunk_payloads,
     count_existing_knowledge,
     knowledge_output_path,
+    select_chunk_payloads,
 )
 
 
@@ -93,6 +94,42 @@ def test_chunk_payloads_iterates_chunk_json_files(tmp_path: Path) -> None:
     payloads = list(chunk_payloads(tmp_path))
 
     assert [payload["chunk_id"] for payload in payloads] == ["0001", "0002"]
+
+
+def test_select_chunk_payloads_can_take_sample_per_video() -> None:
+    payloads = [
+        {"video_id": "a", "chunk_id": "0001"},
+        {"video_id": "a", "chunk_id": "0002"},
+        {"video_id": "a", "chunk_id": "0003"},
+        {"video_id": "b", "chunk_id": "0001"},
+        {"video_id": "b", "chunk_id": "0002"},
+    ]
+
+    selected = select_chunk_payloads(payloads, limit=None, sample_per_video=2)
+
+    assert selected == [
+        {"video_id": "a", "chunk_id": "0001"},
+        {"video_id": "a", "chunk_id": "0002"},
+        {"video_id": "b", "chunk_id": "0001"},
+        {"video_id": "b", "chunk_id": "0002"},
+    ]
+
+
+def test_select_chunk_payloads_applies_limit_after_sample_per_video() -> None:
+    payloads = [
+        {"video_id": "a", "chunk_id": "0001"},
+        {"video_id": "a", "chunk_id": "0002"},
+        {"video_id": "b", "chunk_id": "0001"},
+        {"video_id": "b", "chunk_id": "0002"},
+    ]
+
+    selected = select_chunk_payloads(payloads, limit=3, sample_per_video=2)
+
+    assert selected == [
+        {"video_id": "a", "chunk_id": "0001"},
+        {"video_id": "a", "chunk_id": "0002"},
+        {"video_id": "b", "chunk_id": "0001"},
+    ]
 
 
 def test_knowledge_output_path_uses_video_and_chunk_id(tmp_path: Path) -> None:

@@ -13,6 +13,7 @@ from larchenko_kb.knowledge import (
     chunk_payloads,
     count_existing_knowledge,
     extract_chunk_knowledge,
+    select_chunk_payloads,
 )
 from larchenko_kb.manifest import (
     build_video_record,
@@ -302,13 +303,20 @@ def extract_knowledge(
     config: PipelineConfig,
     model: str | None,
     limit: int | None,
+    sample_per_video: int | None,
     force: bool,
     dry_run: bool,
 ) -> int:
     ensure_raw_layout(config.paths.raw_data)
-    payloads = chunk_payloads(config.paths.raw_data)
-    if limit is not None:
-        payloads = payloads[:limit]
+    try:
+        payloads = select_chunk_payloads(
+            chunk_payloads(config.paths.raw_data),
+            limit=limit,
+            sample_per_video=sample_per_video,
+        )
+    except ValueError as exc:
+        say(str(exc))
+        return 1
 
     if not payloads:
         say("No chunk JSON files found.")
@@ -432,6 +440,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Process only the first N chunks. Useful for a cheap trial run.",
     )
     knowledge_parser.add_argument(
+        "--sample-per-video",
+        type=int,
+        default=None,
+        help="Process the first N chunks from each video. Useful for a diverse trial run.",
+    )
+    knowledge_parser.add_argument(
         "--force",
         action="store_true",
         help="Rebuild existing extracted knowledge files.",
@@ -469,7 +483,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in {"chunk-transcripts", "chunk"}:
         return chunk_transcripts(config, args.chunk_minutes, args.overlap_seconds)
     if args.command == "extract-knowledge":
-        return extract_knowledge(config, args.model, args.limit, args.force, args.dry_run)
+        return extract_knowledge(
+            config,
+            args.model,
+            args.limit,
+            args.sample_per_video,
+            args.force,
+            args.dry_run,
+        )
 
     planned_stage(args.command)
     return 0

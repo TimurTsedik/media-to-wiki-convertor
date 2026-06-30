@@ -273,6 +273,36 @@ def chunk_payloads(raw_data: Path) -> list[dict[str, Any]]:
     return payloads
 
 
+def select_chunk_payloads(
+    payloads: list[dict[str, Any]],
+    limit: int | None = None,
+    sample_per_video: int | None = None,
+) -> list[dict[str, Any]]:
+    selected = payloads
+
+    if sample_per_video is not None:
+        if sample_per_video <= 0:
+            raise ValueError("sample_per_video must be positive")
+
+        counts_by_video: dict[str, int] = {}
+        sampled: list[dict[str, Any]] = []
+        for payload in payloads:
+            video_id = str(payload["video_id"])
+            count = counts_by_video.get(video_id, 0)
+            if count >= sample_per_video:
+                continue
+            sampled.append(payload)
+            counts_by_video[video_id] = count + 1
+        selected = sampled
+
+    if limit is not None:
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        selected = selected[:limit]
+
+    return selected
+
+
 def knowledge_output_path(raw_data: Path, video_id: str, chunk_id: str) -> Path:
     return raw_data / "extracted_knowledge" / video_id / f"{chunk_id}.json"
 
