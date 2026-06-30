@@ -29,6 +29,12 @@ from larchenko_kb.transcription import (
     format_elapsed,
     transcribe_record,
 )
+from larchenko_kb.topic_index import (
+    build_topic_index as build_topic_index_payload,
+    count_topic_index_pages,
+    read_knowledge_payloads,
+    write_topic_index,
+)
 
 
 def say(message: str) -> None:
@@ -42,6 +48,7 @@ def ensure_raw_layout(raw_data: Path) -> None:
         "transcripts",
         "chunks",
         "extracted_knowledge",
+        "topic_index",
         "summaries/chunks",
         "summaries/videos",
         "logs",
@@ -63,6 +70,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"transcripts:  {count_existing_transcripts(config.paths.raw_data)}")
     say(f"chunks:       {count_existing_chunks(config.paths.raw_data)}")
     say(f"knowledge:    {count_existing_knowledge(config.paths.raw_data)}")
+    say(f"topic_pages:  {count_topic_index_pages(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -377,6 +385,31 @@ def extract_knowledge(
     return 1 if failed else 0
 
 
+def build_topic_index(config: PipelineConfig) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    payloads = read_knowledge_payloads(config.paths.raw_data)
+    if not payloads:
+        say("No extracted knowledge JSON files found.")
+        say("Run `python3 -m larchenko_kb extract-knowledge` first.")
+        return 0
+
+    started_at = time.monotonic()
+    say(f"Topic index start: knowledge_files={len(payloads)}")
+    index = build_topic_index_payload(payloads)
+    output_dir = write_topic_index(config.paths.raw_data, index)
+    elapsed = format_elapsed(time.monotonic() - started_at)
+    say(
+        "Topic index complete "
+        f"in {elapsed}: "
+        f"topics={index['summary']['topics']}, "
+        f"terms={index['summary']['terms']}, "
+        f"wiki_candidates={index['summary']['wiki_candidates']}, "
+        f"pages={index['summary']['pages']}"
+    )
+    say(f"Wrote topic index: {output_dir}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="larchenko-kb")
     parser.add_argument(
@@ -455,6 +488,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the first extraction prompt without calling the API.",
     )
+    subparsers.add_parser(
+        "build-topic-index",
+        help="Build deterministic topic/page indexes from extracted knowledge JSON.",
+    )
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Planned Obsidian Markdown generation stage.")
     return parser
@@ -491,6 +528,8 @@ def main(argv: list[str] | None = None) -> int:
             args.force,
             args.dry_run,
         )
+    if args.command == "build-topic-index":
+        return build_topic_index(config)
 
     planned_stage(args.command)
     return 0
