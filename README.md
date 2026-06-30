@@ -69,6 +69,16 @@ If Codex's terminal stalls on the external drive, run heavy disk/video commands 
 python3 -m larchenko_kb status
 ```
 
+Transcription is local and uses `mlx-whisper` by default:
+
+```bash
+python3 -m pip install mlx-whisper
+python3 -m larchenko_kb transcribe
+python3 -m larchenko_kb status
+```
+
+Transcript outputs are written to `raw data/transcripts/` as `.json`, `.txt`, and `.srt`.
+
 ## Pipeline Stages
 
 1. `discover` - scan the read-only video disk and build a manifest.

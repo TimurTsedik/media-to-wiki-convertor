@@ -8,8 +8,8 @@ video_extensions = [".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm"]
 max_depth = 8
 
 [transcription]
-engine = "local-whisper"
-model = "medium"
+engine = "mlx-whisper"
+model = "mlx-community/whisper-medium"
 language = "ru"
 
 [llm]

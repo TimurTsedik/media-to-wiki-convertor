@@ -13,6 +13,7 @@ from larchenko_kb.manifest import (
     read_manifest,
     write_manifest,
 )
+from larchenko_kb.transcription import count_existing_transcripts, transcribe_record
 
 
 def ensure_raw_layout(raw_data: Path) -> None:
@@ -39,6 +40,7 @@ def print_status(config: PipelineConfig) -> None:
     print(f"manifest:     {manifest_path(config.paths.raw_data)}")
     print(f"videos:       {len(records)}")
     print(f"audio_wav:    {count_existing_audio(config.paths.raw_data)}")
+    print(f"transcripts:  {count_existing_transcripts(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -108,6 +110,38 @@ def extract_audio(config: PipelineConfig) -> int:
     return extracted
 
 
+def transcribe(config: PipelineConfig) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    records = read_manifest(config.paths.raw_data)
+    if not records:
+        print("No videos in manifest.")
+        print("Run `python3 -m larchenko_kb discover` or `import-list` first.")
+        return 0
+    if config.transcription.engine != "mlx-whisper":
+        print(f"Unsupported transcription engine: {config.transcription.engine}")
+        print("Supported engine: mlx-whisper")
+        return 1
+
+    created = 0
+    skipped = 0
+    for index, record in enumerate(records, start=1):
+        result = transcribe_record(
+            record,
+            config.paths.raw_data,
+            language=config.transcription.language,
+            model=config.transcription.model,
+        )
+        if result.skipped:
+            skipped += 1
+            print(f"[{index}/{len(records)}] skip {record.video_id}: {result.paths.txt_path}")
+        else:
+            created += 1
+            print(f"[{index}/{len(records)}] transcribed {record.video_id}: {result.paths.txt_path}")
+
+    print(f"Transcription complete: created={created}, skipped={skipped}")
+    return created
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="larchenko-kb")
     parser.add_argument(
@@ -146,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Base directory for relative paths. Defaults to configured video_source.",
     )
     subparsers.add_parser("extract-audio", help="Extract mono 16 kHz WAV files with ffmpeg.")
-    subparsers.add_parser("transcribe", help="Planned local Whisper transcription stage.")
+    subparsers.add_parser("transcribe", help="Transcribe WAV files with local mlx-whisper.")
     subparsers.add_parser("chunk", help="Planned transcript chunking stage.")
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Planned Obsidian Markdown generation stage.")
@@ -169,6 +203,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "extract-audio":
         extract_audio(config)
         return 0
+    if args.command == "transcribe":
+        return transcribe(config)
 
     planned_stage(args.command)
     return 0

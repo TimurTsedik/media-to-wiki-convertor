@@ -24,9 +24,17 @@ class DiscoverConfig:
 
 
 @dataclass(frozen=True)
+class TranscriptionConfig:
+    engine: str
+    model: str
+    language: str
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     paths: PipelinePaths
     discover: DiscoverConfig
+    transcription: TranscriptionConfig
 
 
 def load_config(config_path: Path | None = None) -> PipelineConfig:
@@ -37,6 +45,7 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     paths = data["paths"]
     discover = data.get("discover", {})
+    transcription = data.get("transcription", {})
 
     return PipelineConfig(
         paths=PipelinePaths(
@@ -49,5 +58,10 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
                 ext.lower() for ext in discover.get("video_extensions", [".mp4", ".mov", ".mkv"])
             ),
             max_depth=int(discover.get("max_depth", 8)),
+        ),
+        transcription=TranscriptionConfig(
+            engine=str(transcription.get("engine", "mlx-whisper")),
+            model=str(transcription.get("model", "mlx-community/whisper-medium")),
+            language=str(transcription.get("language", "ru")),
         ),
     )
