@@ -144,7 +144,8 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert (vault / "Index" / "Sources.md").exists()
     assert (vault / "Index" / "Deferred Topics.md").exists()
     assert "Unknown Topic" in (vault / "Index" / "Unlinked Mentions.md").read_text(encoding="utf-8")
-    assert (vault / "Sources" / "Chunks" / "video-a" / "0001.md").exists()
+    source_note = (vault / "Sources" / "Chunks" / "video-a" / "0001.md").read_text(encoding="utf-8")
+    assert "[[90 Transcripts/video-a|Video A]]" in source_note
 
     transcript_index = (vault / "90 Transcripts.md").read_text(encoding="utf-8")
     transcript_note = (vault / "90 Transcripts" / "video-a.md").read_text(encoding="utf-8")

@@ -57,9 +57,10 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
         for source in page.get("sources", []):
             source_pages[(str(source["video_id"]), str(source["chunk_id"]))].append(page)
 
-    source_notes = write_source_notes(raw_data, vault, source_pages)
+    records_by_id = {record.video_id: record for record in read_manifest(raw_data)}
+    source_notes = write_source_notes(raw_data, vault, source_pages, records_by_id)
     transcript_notes = write_transcript_notes(raw_data, vault, source_pages)
-    indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions)
+    indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions, records_by_id)
     write_home(raw_data, vault, pages, source_notes, transcript_notes)
 
     return VaultBuildResult(
@@ -143,10 +144,11 @@ def write_indexes(
     pages: list[dict[str, Any]],
     source_pages: dict[tuple[str, str], list[dict[str, Any]]],
     unlinked_mentions: dict[str, set[str]],
+    records_by_id: dict[str, VideoRecord],
 ) -> int:
     write_text(vault / "Index" / "Articles.md", render_articles_index(pages))
     write_text(vault / "Index" / "Domains.md", render_domains_index(pages))
-    write_text(vault / "Index" / "Sources.md", render_sources_index(source_pages))
+    write_text(vault / "Index" / "Sources.md", render_sources_index(source_pages, records_by_id))
     write_text(vault / "Index" / "Deferred Topics.md", render_deferred_index(raw_data))
     write_text(vault / "Index" / "Unlinked Mentions.md", render_unlinked_mentions(unlinked_mentions))
     return 5
@@ -223,12 +225,20 @@ def render_domains_index(pages: list[dict[str, Any]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_sources_index(source_pages: dict[tuple[str, str], list[dict[str, Any]]]) -> str:
+def render_sources_index(
+    source_pages: dict[tuple[str, str], list[dict[str, Any]]],
+    records_by_id: dict[str, VideoRecord],
+) -> str:
     lines = ["# Sources", ""]
     for video_id, chunk_id in sorted(source_pages):
         pages = source_pages[(video_id, chunk_id)]
         links = ", ".join(article_link(page) for page in pages)
-        lines.append(f"- [[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]] — {links}")
+        transcript = transcript_link(video_id, records_by_id)
+        transcript_part = f" — {transcript}" if transcript else ""
+        lines.append(
+            f"- [[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]"
+            f"{transcript_part} — {links}"
+        )
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -275,6 +285,7 @@ def write_source_notes(
     raw_data: Path,
     vault: Path,
     source_pages: dict[tuple[str, str], list[dict[str, Any]]],
+    records_by_id: dict[str, VideoRecord],
 ) -> int:
     for video_id, chunk_id in sorted(source_pages):
         pages = source_pages[(video_id, chunk_id)]
@@ -282,12 +293,14 @@ def write_source_notes(
         source = find_source(pages, video_id, chunk_id)
         start = source.get("start") or chunk.get("start_hms", "")
         end = source.get("end") or chunk.get("end_hms", "")
+        transcript = transcript_link(video_id, records_by_id)
         lines = [
             f"# {video_id}/{chunk_id}",
             "",
             f"- Video: `{video_id}`",
             f"- Chunk: `{chunk_id}`",
             f"- Time: `{start}-{end}`",
+            f"- Full transcript: {transcript}" if transcript else "- Full transcript: not found",
             "- Used by:",
             *[f"  - {article_link(page)}" for page in pages],
             "",
@@ -298,6 +311,13 @@ def write_source_notes(
         ]
         write_text(vault / "Sources" / "Chunks" / video_id / f"{chunk_id}.md", "\n".join(lines))
     return len(source_pages)
+
+
+def transcript_link(video_id: str, records_by_id: dict[str, VideoRecord]) -> str:
+    record = records_by_id.get(video_id)
+    if record is None:
+        return ""
+    return f"[[90 Transcripts/{record.video_id}|{record.title}]]"
 
 
 def write_transcript_notes(
