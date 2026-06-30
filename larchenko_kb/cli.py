@@ -4,6 +4,12 @@ import argparse
 from pathlib import Path
 import time
 
+from larchenko_kb.article_plan import (
+    build_article_plan as build_article_plan_payload,
+    count_article_plan_pages,
+    read_topic_pages,
+    write_article_plan,
+)
 from larchenko_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
 from larchenko_kb.chunks import chunk_transcript_record, count_existing_chunks
 from larchenko_kb.config import PipelineConfig, load_config
@@ -49,6 +55,7 @@ def ensure_raw_layout(raw_data: Path) -> None:
         "chunks",
         "extracted_knowledge",
         "topic_index",
+        "article_plan",
         "summaries/chunks",
         "summaries/videos",
         "logs",
@@ -71,6 +78,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"chunks:       {count_existing_chunks(config.paths.raw_data)}")
     say(f"knowledge:    {count_existing_knowledge(config.paths.raw_data)}")
     say(f"topic_pages:  {count_topic_index_pages(config.paths.raw_data)}")
+    say(f"article_pages:{count_article_plan_pages(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -410,6 +418,37 @@ def build_topic_index(config: PipelineConfig) -> int:
     return 0
 
 
+def build_article_plan(config: PipelineConfig, min_sources: int, max_pages: int | None) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    try:
+        pages = read_topic_pages(config.paths.raw_data)
+        plan = build_article_plan_payload(pages, min_sources=min_sources, max_pages=max_pages)
+    except ValueError as exc:
+        say(str(exc))
+        return 1
+
+    if not pages:
+        say("No topic index pages found.")
+        say("Run `python3 -m larchenko_kb build-topic-index` first.")
+        return 0
+
+    started_at = time.monotonic()
+    say(
+        "Article plan start: "
+        f"topic_pages={len(pages)}, min_sources={min_sources}, max_pages={max_pages}"
+    )
+    output_dir = write_article_plan(config.paths.raw_data, plan)
+    elapsed = format_elapsed(time.monotonic() - started_at)
+    say(
+        "Article plan complete "
+        f"in {elapsed}: "
+        f"article_pages={plan['summary']['article_pages']}, "
+        f"deferred_pages={plan['summary']['deferred_pages']}"
+    )
+    say(f"Wrote article plan: {output_dir}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="larchenko-kb")
     parser.add_argument(
@@ -492,6 +531,22 @@ def build_parser() -> argparse.ArgumentParser:
         "build-topic-index",
         help="Build deterministic topic/page indexes from extracted knowledge JSON.",
     )
+    article_plan_parser = subparsers.add_parser(
+        "build-article-plan",
+        help="Build deterministic article plan and source packs from topic index pages.",
+    )
+    article_plan_parser.add_argument(
+        "--min-sources",
+        type=int,
+        default=2,
+        help="Minimum distinct source chunks required for an article page. Default: 2.",
+    )
+    article_plan_parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=None,
+        help="Keep only the top N article pages by deterministic score.",
+    )
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Planned Obsidian Markdown generation stage.")
     return parser
@@ -530,6 +585,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "build-topic-index":
         return build_topic_index(config)
+    if args.command == "build-article-plan":
+        return build_article_plan(config, args.min_sources, args.max_pages)
 
     planned_stage(args.command)
     return 0
