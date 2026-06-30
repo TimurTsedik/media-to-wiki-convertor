@@ -80,6 +80,13 @@ def format_timestamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
 
 
+def format_elapsed(seconds: float) -> str:
+    total_seconds = int(seconds)
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 def format_srt(segments: list[Segment]) -> str:
     blocks: list[str] = []
     for index, segment in enumerate(segments, start=1):

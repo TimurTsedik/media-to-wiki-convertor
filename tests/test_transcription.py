@@ -4,6 +4,7 @@ from larchenko_kb.manifest import VideoRecord
 from larchenko_kb.transcription import (
     Segment,
     count_existing_transcripts,
+    format_elapsed,
     format_srt,
     transcribe_records,
     transcribe_record,
@@ -45,6 +46,12 @@ def test_format_srt_writes_timestamps() -> None:
     output = format_srt([Segment(start=1.25, end=3.5, text="Привет")])
 
     assert output == "1\n00:00:01,250 --> 00:00:03,500\nПривет\n"
+
+
+def test_format_elapsed_uses_hh_mm_ss() -> None:
+    assert format_elapsed(3.2) == "00:00:03"
+    assert format_elapsed(65.9) == "00:01:05"
+    assert format_elapsed(3661.1) == "01:01:01"
 
 
 def test_transcribe_record_writes_json_txt_and_srt(tmp_path: Path) -> None:

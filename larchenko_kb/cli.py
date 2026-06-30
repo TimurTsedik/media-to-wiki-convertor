@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import time
 
 from larchenko_kb.audio import count_existing_audio, extract_audio_for_record, has_ffmpeg
 from larchenko_kb.config import PipelineConfig, load_config
@@ -16,6 +17,7 @@ from larchenko_kb.manifest import (
 from larchenko_kb.transcription import (
     append_transcription_log,
     count_existing_transcripts,
+    format_elapsed,
     transcribe_record,
 )
 
@@ -129,7 +131,9 @@ def transcribe(config: PipelineConfig) -> int:
     created = 0
     skipped = 0
     failed = 0
+    batch_started_at = time.monotonic()
     for index, record in enumerate(records, start=1):
+        item_started_at = time.monotonic()
         try:
             result = transcribe_record(
                 record,
@@ -139,18 +143,27 @@ def transcribe(config: PipelineConfig) -> int:
             )
         except Exception as exc:
             failed += 1
+            elapsed = format_elapsed(time.monotonic() - item_started_at)
             append_transcription_log(config.paths.raw_data, f"fail {record.video_id} {exc}")
-            print(f"[{index}/{len(records)}] failed {record.video_id}: {exc}")
+            print(f"[{index}/{len(records)}] failed {record.video_id} in {elapsed}: {exc}")
             continue
 
+        elapsed = format_elapsed(time.monotonic() - item_started_at)
         if result.skipped:
             skipped += 1
-            print(f"[{index}/{len(records)}] skip {record.video_id}: {result.paths.txt_path}")
+            print(f"[{index}/{len(records)}] skip {record.video_id} in {elapsed}: {result.paths.txt_path}")
         else:
             created += 1
-            print(f"[{index}/{len(records)}] transcribed {record.video_id}: {result.paths.txt_path}")
+            print(
+                f"[{index}/{len(records)}] transcribed {record.video_id} "
+                f"in {elapsed}: {result.paths.txt_path}"
+            )
 
-    print(f"Transcription complete: created={created}, skipped={skipped}, failed={failed}")
+    total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
+    print(
+        f"Transcription complete in {total_elapsed}: "
+        f"created={created}, skipped={skipped}, failed={failed}"
+    )
     return 1 if failed else 0
 
 
