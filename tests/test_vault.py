@@ -135,6 +135,9 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
 
     assert "aliases:" in spec
     assert "[[Wiki/Daily/Standup|Daily / Standup]]" in spec
+    assert "## Исходные транскрибации" in spec
+    assert "[[90 Transcripts/video-a|Video A]]" in spec
+    assert "[[Sources/Chunks/video-a/0001|video-a/0001]]" in spec
     assert "[[Unknown Topic]]" not in spec
     assert "Unknown Topic" in spec
     assert "[[Wiki/Spec Driven Development|SDD]]" in daily

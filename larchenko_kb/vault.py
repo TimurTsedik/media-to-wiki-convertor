@@ -40,6 +40,7 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
     for dirname in MANAGED_DIRS:
         reset_dir(vault / dirname)
 
+    records_by_id = {record.video_id: record for record in read_manifest(raw_data)}
     link_targets = {str(page["title"]): note_target_for_title(str(page["title"])) for page in pages}
     source_pages: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     unlinked_mentions: dict[str, set[str]] = defaultdict(set)
@@ -52,12 +53,12 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
         for unknown_link in unknown_links:
             unlinked_mentions[unknown_link].add(str(page["title"]))
         markdown = add_article_frontmatter(markdown, page)
+        markdown = add_article_transcript_sources(markdown, page, records_by_id)
         write_text(output_path, markdown)
 
         for source in page.get("sources", []):
             source_pages[(str(source["video_id"]), str(source["chunk_id"]))].append(page)
 
-    records_by_id = {record.video_id: record for record in read_manifest(raw_data)}
     source_notes = write_source_notes(raw_data, vault, source_pages, records_by_id)
     transcript_notes = write_transcript_notes(raw_data, vault, source_pages)
     indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions, records_by_id)
@@ -132,6 +133,44 @@ def add_article_frontmatter(markdown: str, page: dict[str, Any]) -> str:
         "",
     ]
     return "\n".join(lines) + markdown.lstrip()
+
+
+def add_article_transcript_sources(
+    markdown: str,
+    page: dict[str, Any],
+    records_by_id: dict[str, VideoRecord],
+) -> str:
+    sources = page.get("sources", [])
+    if not sources:
+        return markdown
+
+    lines = ["", "## Исходные транскрибации", ""]
+    seen_video_ids: set[str] = set()
+    for source in sources:
+        video_id = str(source.get("video_id", ""))
+        if not video_id or video_id in seen_video_ids:
+            continue
+        seen_video_ids.add(video_id)
+        link = transcript_link(video_id, records_by_id)
+        if link:
+            lines.append(f"- {link}")
+
+    lines.extend(["", "## Source chunks", ""])
+    seen_chunks: set[tuple[str, str]] = set()
+    for source in sources:
+        video_id = str(source.get("video_id", ""))
+        chunk_id = str(source.get("chunk_id", ""))
+        if not video_id or not chunk_id or (video_id, chunk_id) in seen_chunks:
+            continue
+        seen_chunks.add((video_id, chunk_id))
+        start = str(source.get("start", ""))
+        end = str(source.get("end", ""))
+        time_range = f" {start}-{end}" if start or end else ""
+        lines.append(
+            f"- [[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]{time_range}"
+        )
+
+    return markdown.rstrip() + "\n" + "\n".join(lines).rstrip() + "\n"
 
 
 def yaml_string(value: str) -> str:
