@@ -7,6 +7,13 @@ import time
 from larchenko_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
 from larchenko_kb.chunks import chunk_transcript_record, count_existing_chunks
 from larchenko_kb.config import PipelineConfig, load_config
+from larchenko_kb.knowledge import (
+    OpenAIKnowledgeClient,
+    build_extraction_prompt,
+    chunk_payloads,
+    count_existing_knowledge,
+    extract_chunk_knowledge,
+)
 from larchenko_kb.manifest import (
     build_video_record,
     iter_video_files,
@@ -33,6 +40,7 @@ def ensure_raw_layout(raw_data: Path) -> None:
         "audio",
         "transcripts",
         "chunks",
+        "extracted_knowledge",
         "summaries/chunks",
         "summaries/videos",
         "logs",
@@ -53,6 +61,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"audio_wav:    {count_existing_audio(config.paths.raw_data)}")
     say(f"transcripts:  {count_existing_transcripts(config.paths.raw_data)}")
     say(f"chunks:       {count_existing_chunks(config.paths.raw_data)}")
+    say(f"knowledge:    {count_existing_knowledge(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -289,6 +298,77 @@ def add_chunk_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def extract_knowledge(
+    config: PipelineConfig,
+    model: str | None,
+    limit: int | None,
+    force: bool,
+    dry_run: bool,
+) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    payloads = chunk_payloads(config.paths.raw_data)
+    if limit is not None:
+        payloads = payloads[:limit]
+
+    if not payloads:
+        say("No chunk JSON files found.")
+        say("Run `python3 -m larchenko_kb chunk-transcripts` first.")
+        return 0
+
+    selected_model = model or config.llm.model
+    say(
+        "Knowledge extraction settings: "
+        f"model={selected_model}, chunks={len(payloads)}, force={force}, dry_run={dry_run}"
+    )
+
+    if dry_run:
+        say(build_extraction_prompt(payloads[0]))
+        return 0
+
+    try:
+        client = OpenAIKnowledgeClient.from_env(model=selected_model)
+    except RuntimeError as exc:
+        say(str(exc))
+        return 1
+    created = 0
+    skipped = 0
+    failed = 0
+    batch_started_at = time.monotonic()
+
+    for index, payload in enumerate(payloads, start=1):
+        started_at = time.monotonic()
+        video_id = str(payload["video_id"])
+        chunk_id = str(payload["chunk_id"])
+        say(f"[{index}/{len(payloads)}] knowledge start {video_id}/{chunk_id}")
+        try:
+            result = extract_chunk_knowledge(
+                config.paths.raw_data,
+                payload,
+                client,
+                force=force,
+            )
+        except Exception as exc:
+            failed += 1
+            elapsed = format_elapsed(time.monotonic() - started_at)
+            say(f"[{index}/{len(payloads)}] knowledge failed {video_id}/{chunk_id} in {elapsed}: {exc}")
+            continue
+
+        elapsed = format_elapsed(time.monotonic() - started_at)
+        if result.skipped:
+            skipped += 1
+            say(f"[{index}/{len(payloads)}] knowledge skip {video_id}/{chunk_id} in {elapsed}: {result.output_path}")
+        else:
+            created += 1
+            say(f"[{index}/{len(payloads)}] knowledge extracted {video_id}/{chunk_id} in {elapsed}: {result.output_path}")
+
+    total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
+    say(
+        f"Knowledge extraction complete in {total_elapsed}: "
+        f"created={created}, skipped={skipped}, failed={failed}"
+    )
+    return 1 if failed else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="larchenko-kb")
     parser.add_argument(
@@ -336,6 +416,31 @@ def build_parser() -> argparse.ArgumentParser:
     add_chunk_arguments(chunk_parser)
     chunk_alias_parser = subparsers.add_parser("chunk", help="Alias for chunk-transcripts.")
     add_chunk_arguments(chunk_alias_parser)
+    knowledge_parser = subparsers.add_parser(
+        "extract-knowledge",
+        help="Extract structured knowledge JSON from transcript chunks with OpenAI.",
+    )
+    knowledge_parser.add_argument(
+        "--model",
+        default=None,
+        help="OpenAI model. Defaults to [llm].model in config.",
+    )
+    knowledge_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Process only the first N chunks. Useful for a cheap trial run.",
+    )
+    knowledge_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild existing extracted knowledge files.",
+    )
+    knowledge_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the first extraction prompt without calling the API.",
+    )
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Planned Obsidian Markdown generation stage.")
     return parser
@@ -363,6 +468,8 @@ def main(argv: list[str] | None = None) -> int:
         return transcribe(config)
     if args.command in {"chunk-transcripts", "chunk"}:
         return chunk_transcripts(config, args.chunk_minutes, args.overlap_seconds)
+    if args.command == "extract-knowledge":
+        return extract_knowledge(config, args.model, args.limit, args.force, args.dry_run)
 
     planned_stage(args.command)
     return 0

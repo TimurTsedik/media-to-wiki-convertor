@@ -15,6 +15,9 @@ vault = "/vault"
 [discover]
 video_extensions = [".mp4", ".MOV"]
 max_depth = 3
+
+[llm]
+model = "gpt-5.4-mini"
 """.strip(),
         encoding="utf-8",
     )
@@ -26,3 +29,4 @@ max_depth = 3
     assert config.paths.vault == Path("/vault")
     assert config.discover.video_extensions == (".mp4", ".mov")
     assert config.discover.max_depth == 3
+    assert config.llm.model == "gpt-5.4-mini"

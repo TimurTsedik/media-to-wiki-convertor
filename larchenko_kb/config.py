@@ -31,10 +31,16 @@ class TranscriptionConfig:
 
 
 @dataclass(frozen=True)
+class LLMConfig:
+    model: str
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     paths: PipelinePaths
     discover: DiscoverConfig
     transcription: TranscriptionConfig
+    llm: LLMConfig
 
 
 def load_config(config_path: Path | None = None) -> PipelineConfig:
@@ -46,6 +52,7 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
     paths = data["paths"]
     discover = data.get("discover", {})
     transcription = data.get("transcription", {})
+    llm = data.get("llm", {})
 
     return PipelineConfig(
         paths=PipelinePaths(
@@ -63,5 +70,8 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
             engine=str(transcription.get("engine", "mlx-whisper")),
             model=str(transcription.get("model", "mlx-community/whisper-medium")),
             language=str(transcription.get("language", "ru")),
+        ),
+        llm=LLMConfig(
+            model=str(llm.get("model", "gpt-5.4-mini")),
         ),
     )
