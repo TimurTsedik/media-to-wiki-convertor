@@ -4,7 +4,9 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -25,19 +27,41 @@ def stable_video_id(path: Path) -> str:
     return hashlib.sha1(str(path).encode("utf-8")).hexdigest()[:12]
 
 
-def iter_video_files(source: Path, extensions: tuple[str, ...], max_depth: int) -> list[Path]:
+def iter_video_files(
+    source: Path,
+    extensions: tuple[str, ...],
+    max_depth: int,
+    on_progress: Callable[[Path], None] | None = None,
+) -> list[Path]:
     if not source.exists():
         return []
 
-    source_depth = len(source.parts)
     matches: list[Path] = []
-    for path in source.rglob("*"):
-        if not path.is_file():
+    pending: list[tuple[Path, int]] = [(source, 0)]
+    normalized_extensions = {ext.lower() for ext in extensions}
+
+    while pending:
+        current_dir, depth = pending.pop()
+        if on_progress is not None:
+            on_progress(current_dir)
+
+        try:
+            with os.scandir(current_dir) as entries:
+                current_entries = sorted(entries, key=lambda entry: entry.name.casefold())
+        except OSError:
             continue
-        if len(path.parts) - source_depth > max_depth:
-            continue
-        if path.suffix.lower() in extensions:
-            matches.append(path)
+
+        for entry in current_entries:
+            path = Path(entry.path)
+            try:
+                if entry.is_file(follow_symlinks=False):
+                    if depth + 1 <= max_depth and path.suffix.lower() in normalized_extensions:
+                        matches.append(path)
+                elif entry.is_dir(follow_symlinks=False) and depth < max_depth:
+                    pending.append((path, depth + 1))
+            except OSError:
+                continue
+
     return sorted(matches, key=lambda item: str(item).casefold())
 
 

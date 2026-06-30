@@ -40,6 +40,19 @@ python3 -m larchenko_kb status
 
 `discover` creates `raw data/manifest/videos.jsonl`. It is safe to re-run.
 
+If the external disk is slow to list, point discovery at a narrower subfolder:
+
+```bash
+python3 -m larchenko_kb discover --source "/Volumes/My Passport/ЛАРЧЕНКО/<subfolder>"
+```
+
+Audio extraction requires `ffmpeg` on `PATH`:
+
+```bash
+brew install ffmpeg
+python3 -m larchenko_kb extract-audio
+```
+
 ## Pipeline Stages
 
 1. `discover` - scan the read-only video disk and build a manifest.

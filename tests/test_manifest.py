@@ -21,6 +21,24 @@ def test_iter_video_files_filters_extensions_and_depth(tmp_path: Path) -> None:
     assert matches == [tmp_path / "lesson.mp4"]
 
 
+def test_iter_video_files_reports_directory_progress(tmp_path: Path) -> None:
+    nested = tmp_path / "course"
+    nested.mkdir()
+    (nested / "lesson.mov").write_text("video", encoding="utf-8")
+    visited: list[Path] = []
+
+    matches = iter_video_files(
+        tmp_path,
+        (".mov",),
+        max_depth=2,
+        on_progress=visited.append,
+    )
+
+    assert matches == [nested / "lesson.mov"]
+    assert tmp_path in visited
+    assert nested in visited
+
+
 def test_write_and_read_manifest_roundtrip(tmp_path: Path) -> None:
     record = VideoRecord(
         video_id="abc123",
