@@ -556,6 +556,7 @@ def build_vault(config: PipelineConfig) -> int:
         f"in {elapsed}: "
         f"articles={result.articles}, "
         f"source_notes={result.source_notes}, "
+        f"transcript_notes={result.transcript_notes}, "
         f"indexes={result.indexes}"
     )
     return 0

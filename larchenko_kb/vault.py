@@ -7,9 +7,12 @@ from pathlib import Path
 import re
 import shutil
 from typing import Any
+from urllib.parse import quote
+
+from larchenko_kb.manifest import VideoRecord, read_manifest
 
 
-MANAGED_DIRS = ("Wiki", "Index", "Sources")
+MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts")
 LINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 INVALID_FILENAME_CHARS = set(':\\?#^[]|')
 
@@ -19,6 +22,7 @@ class VaultBuildResult:
     vault: Path
     articles: int
     source_notes: int
+    transcript_notes: int
     indexes: int
 
 
@@ -53,14 +57,16 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
         for source in page.get("sources", []):
             source_pages[(str(source["video_id"]), str(source["chunk_id"]))].append(page)
 
-    indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions)
     source_notes = write_source_notes(raw_data, vault, source_pages)
-    write_home(raw_data, vault, pages, source_notes)
+    transcript_notes = write_transcript_notes(raw_data, vault, source_pages)
+    indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions)
+    write_home(raw_data, vault, pages, source_notes, transcript_notes)
 
     return VaultBuildResult(
         vault=vault,
         articles=len(pages),
         source_notes=source_notes,
+        transcript_notes=transcript_notes,
         indexes=indexes,
     )
 
@@ -146,7 +152,13 @@ def write_indexes(
     return 5
 
 
-def write_home(raw_data: Path, vault: Path, pages: list[dict[str, Any]], source_notes: int) -> None:
+def write_home(
+    raw_data: Path,
+    vault: Path,
+    pages: list[dict[str, Any]],
+    source_notes: int,
+    transcript_notes: int,
+) -> None:
     summary = read_json_object(raw_data / "article_plan" / "summary.json")
     chunks_count = count_files(raw_data / "chunks", "*.json")
     knowledge_count = count_files(raw_data / "extracted_knowledge", "*.json")
@@ -158,12 +170,14 @@ def write_home(raw_data: Path, vault: Path, pages: list[dict[str, Any]], source_
         "- [[Index/Articles|Articles]]",
         "- [[Index/Domains|Domains]]",
         "- [[Index/Sources|Sources]]",
+        "- [[90 Transcripts|Transcripts]]",
         "- [[Index/Deferred Topics|Deferred Topics]]",
         "- [[Index/Unlinked Mentions|Unlinked Mentions]]",
         "",
         "## Статус базы",
         f"- Wiki-статей: {len(pages)}",
         f"- Source notes: {source_notes}",
+        f"- Transcript notes: {transcript_notes}",
         f"- Draft articles: {drafts_count}",
         f"- Transcript chunks: {chunks_count}",
         f"- Extracted knowledge files: {knowledge_count}",
@@ -284,6 +298,75 @@ def write_source_notes(
         ]
         write_text(vault / "Sources" / "Chunks" / video_id / f"{chunk_id}.md", "\n".join(lines))
     return len(source_pages)
+
+
+def write_transcript_notes(
+    raw_data: Path,
+    vault: Path,
+    source_pages: dict[tuple[str, str], list[dict[str, Any]]],
+) -> int:
+    records = read_manifest(raw_data)
+    transcript_records = [record for record in records if transcript_paths(raw_data, record.video_id)]
+    lines = ["# 90 Transcripts", ""]
+    if not transcript_records:
+        lines.append("Транскрипции пока не найдены.")
+        write_text(vault / "90 Transcripts.md", "\n".join(lines) + "\n")
+        return 0
+
+    for record in sorted(transcript_records, key=lambda item: item.title.casefold()):
+        write_transcript_note(raw_data, vault, record, source_pages)
+        lines.append(f"- [[90 Transcripts/{record.video_id}|{record.title}]]")
+
+    write_text(vault / "90 Transcripts.md", "\n".join(lines).rstrip() + "\n")
+    return len(transcript_records)
+
+
+def write_transcript_note(
+    raw_data: Path,
+    vault: Path,
+    record: VideoRecord,
+    source_pages: dict[tuple[str, str], list[dict[str, Any]]],
+) -> None:
+    transcript_files = transcript_paths(raw_data, record.video_id)
+    used_chunks = sorted(
+        chunk_id for video_id, chunk_id in source_pages if video_id == record.video_id
+    )
+    lines = [
+        f"# {record.title}",
+        "",
+        f"- Video ID: `{record.video_id}`",
+        f"- Source video: {file_link(Path(record.path), record.title)}",
+        "- Transcript files:",
+    ]
+    for label, path in transcript_files:
+        lines.append(f"  - {file_link(path, label)}")
+
+    if used_chunks:
+        lines.extend(["", "## Used Source Chunks", ""])
+        for chunk_id in used_chunks:
+            lines.append(
+                f"- [[Sources/Chunks/{record.video_id}/{chunk_id}|{record.video_id}/{chunk_id}]]"
+            )
+    write_text(vault / "90 Transcripts" / f"{record.video_id}.md", "\n".join(lines) + "\n")
+
+
+def transcript_paths(raw_data: Path, video_id: str) -> list[tuple[str, Path]]:
+    transcript_dir = raw_data / "transcripts"
+    candidates = [
+        ("TXT", transcript_dir / f"{video_id}.txt"),
+        ("SRT", transcript_dir / f"{video_id}.srt"),
+        ("JSON", transcript_dir / f"{video_id}.json"),
+    ]
+    return [(label, path) for label, path in candidates if path.exists()]
+
+
+def file_link(path: Path, label: str) -> str:
+    absolute = path.expanduser().resolve()
+    return f"[{escape_markdown_link_label(label)}](file://{quote(str(absolute))})"
+
+
+def escape_markdown_link_label(label: str) -> str:
+    return label.replace("\\", "\\\\").replace("[", r"\[").replace("]", r"\]")
 
 
 def find_source(pages: list[dict[str, Any]], video_id: str, chunk_id: str) -> dict[str, Any]:
