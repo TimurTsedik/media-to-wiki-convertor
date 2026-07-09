@@ -107,7 +107,7 @@ overlap_seconds = 120
 `.env` stores secrets:
 
 ```text
-OPENAI_API_KEY=sk-proj-...
+OPENAI_API_KEY=
 ```
 
 The CLI must never print API keys.

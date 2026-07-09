@@ -3,18 +3,22 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "larchenko-kb"
+name = "video-kb"
 version = "0.1.0"
-description = "Pipeline for transcribing Larchenko training videos into an Obsidian knowledge base."
+description = "Local CLI for turning video folders into Obsidian knowledge bases."
 requires-python = ">=3.11"
 dependencies = ["numpy"]
 
+[project.optional-dependencies]
+mlx = ["mlx-whisper"]
+dev = ["pytest", "ruff"]
+
 [project.scripts]
-larchenko-kb = "larchenko_kb.cli:main"
+video-kb = "video_kb.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["larchenko_kb*"]
+include = ["video_kb*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

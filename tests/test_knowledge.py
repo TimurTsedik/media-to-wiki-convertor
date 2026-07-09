@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from larchenko_kb.knowledge import (
+from video_kb.knowledge import (
     KNOWLEDGE_SCHEMA,
     OpenAIKnowledgeClient,
     build_extraction_prompt,
@@ -105,7 +105,7 @@ def test_openai_client_strips_api_key_whitespace() -> None:
 
 def test_openai_client_rejects_placeholder_api_key() -> None:
     try:
-        OpenAIKnowledgeClient(api_key="sk-proj-ТВОЙ_НОВЫЙ_КЛЮЧ", model="gpt-5.4-mini")
+        OpenAIKnowledgeClient(api_key="placeholder-api-key", model="gpt-5.4-mini")
     except RuntimeError as exc:
         assert "OPENAI_API_KEY" in str(exc)
     else:

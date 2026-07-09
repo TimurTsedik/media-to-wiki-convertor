@@ -6,10 +6,10 @@ from pathlib import Path
 import tomllib
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.toml"
-EXAMPLE_CONFIG_PATH = PROJECT_ROOT / "config.example.toml"
-DOTENV_PATH = PROJECT_ROOT / ".env"
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG_NAME = "config.toml"
+EXAMPLE_CONFIG_PATH = PACKAGE_ROOT / "config.example.toml"
+DOTENV_NAME = ".env"
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,14 @@ class TranscriptionConfig:
 
 @dataclass(frozen=True)
 class LLMConfig:
+    provider: str
     model: str
+
+
+@dataclass(frozen=True)
+class ChunkingConfig:
+    chunk_minutes: int
+    overlap_seconds: int
 
 
 @dataclass(frozen=True)
@@ -43,26 +50,26 @@ class PipelineConfig:
     discover: DiscoverConfig
     transcription: TranscriptionConfig
     llm: LLMConfig
+    chunking: ChunkingConfig
 
 
 def load_config(config_path: Path | None = None) -> PipelineConfig:
-    load_dotenv(DOTENV_PATH)
-
-    path = config_path or DEFAULT_CONFIG_PATH
-    if not path.exists():
-        path = EXAMPLE_CONFIG_PATH
+    path = resolve_config_path(config_path)
+    load_dotenv(path.parent / DOTENV_NAME)
 
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     paths = data["paths"]
     discover = data.get("discover", {})
     transcription = data.get("transcription", {})
     llm = data.get("llm", {})
+    chunking = data.get("chunking", {})
+    base_dir = path.parent
 
     return PipelineConfig(
         paths=PipelinePaths(
-            video_source=Path(paths["video_source"]).expanduser(),
-            raw_data=Path(paths["raw_data"]).expanduser(),
-            vault=Path(paths["vault"]).expanduser(),
+            video_source=resolve_project_path(base_dir, paths["video_source"]),
+            raw_data=resolve_project_path(base_dir, paths["raw_data"]),
+            vault=resolve_project_path(base_dir, paths["vault"]),
         ),
         discover=DiscoverConfig(
             video_extensions=tuple(
@@ -76,9 +83,34 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
             language=str(transcription.get("language", "ru")),
         ),
         llm=LLMConfig(
+            provider=str(llm.get("provider", "openai")),
             model=str(llm.get("model", "gpt-5.4-mini")),
         ),
+        chunking=ChunkingConfig(
+            chunk_minutes=int(chunking.get("chunk_minutes", llm.get("chunk_minutes", 10))),
+            overlap_seconds=int(chunking.get("overlap_seconds", 120)),
+        ),
     )
+
+
+def resolve_config_path(config_path: Path | None = None) -> Path:
+    if config_path is not None:
+        path = config_path.expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        return path
+
+    project_config = Path.cwd() / DEFAULT_CONFIG_NAME
+    if project_config.exists():
+        return project_config
+    return EXAMPLE_CONFIG_PATH
+
+
+def resolve_project_path(base_dir: Path, raw_path: str) -> Path:
+    path = Path(raw_path).expanduser()
+    if path.is_absolute():
+        return path
+    return base_dir / path
 
 
 def load_dotenv(path: Path) -> dict[str, str]:

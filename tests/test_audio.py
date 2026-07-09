@@ -1,14 +1,14 @@
 from pathlib import Path
 import wave
 
-from larchenko_kb.audio import (
+from video_kb.audio import (
     audio_is_valid,
     audio_output_path,
     build_ffmpeg_command,
     count_existing_audio,
     extract_audio_for_record,
 )
-from larchenko_kb.manifest import VideoRecord
+from video_kb.manifest import VideoRecord
 
 
 def make_record(path: str = "/videos/lesson.mp4") -> VideoRecord:

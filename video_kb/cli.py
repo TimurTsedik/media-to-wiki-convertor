@@ -4,16 +4,16 @@ import argparse
 from pathlib import Path
 import time
 
-from larchenko_kb.article_plan import (
+from video_kb.article_plan import (
     build_article_plan as build_article_plan_payload,
     count_article_plan_pages,
     read_topic_pages,
     write_article_plan,
 )
-from larchenko_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
-from larchenko_kb.chunks import chunk_transcript_record, count_existing_chunks
-from larchenko_kb.config import PipelineConfig, load_config
-from larchenko_kb.draft_articles import (
+from video_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
+from video_kb.chunks import chunk_transcript_record, count_existing_chunks
+from video_kb.config import PipelineConfig, load_config
+from video_kb.draft_articles import (
     OpenAIArticleClient,
     build_article_prompt,
     count_draft_articles,
@@ -21,7 +21,7 @@ from larchenko_kb.draft_articles import (
     read_article_pages,
     select_source_packs,
 )
-from larchenko_kb.knowledge import (
+from video_kb.knowledge import (
     OpenAIKnowledgeClient,
     build_extraction_prompt,
     chunk_payloads,
@@ -29,7 +29,7 @@ from larchenko_kb.knowledge import (
     extract_chunk_knowledge,
     select_chunk_payloads,
 )
-from larchenko_kb.manifest import (
+from video_kb.manifest import (
     build_video_record,
     iter_video_files,
     manifest_path,
@@ -37,19 +37,21 @@ from larchenko_kb.manifest import (
     read_manifest,
     write_manifest,
 )
-from larchenko_kb.transcription import (
+from video_kb.project import ProjectSettings, init_project, update_project_config
+from video_kb.run_pipeline import PipelineStage, run_selected_stages
+from video_kb.transcription import (
     append_transcription_log,
     count_existing_transcripts,
     format_elapsed,
     transcribe_record,
 )
-from larchenko_kb.topic_index import (
+from video_kb.topic_index import (
     build_topic_index as build_topic_index_payload,
     count_topic_index_pages,
     read_knowledge_payloads,
     write_topic_index,
 )
-from larchenko_kb.vault import build_obsidian_vault
+from video_kb.vault import build_obsidian_vault
 
 
 def say(message: str) -> None:
@@ -129,7 +131,7 @@ def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | 
 
 def planned_stage(name: str) -> None:
     say(f"{name} is planned, but not implemented yet.")
-    say("Run `python3 -m larchenko_kb discover` first to create the video manifest.")
+    say("Run `python3 -m video_kb discover` first to create the video manifest.")
 
 
 def extract_audio(config: PipelineConfig) -> int:
@@ -137,7 +139,7 @@ def extract_audio(config: PipelineConfig) -> int:
     records = read_manifest(config.paths.raw_data)
     if not records:
         say("No videos in manifest.")
-        say("Run `python3 -m larchenko_kb discover` first.")
+        say("Run `python3 -m video_kb discover` first.")
         return 0
     if not has_ffmpeg():
         say("ffmpeg is not installed or is not available on PATH.")
@@ -193,7 +195,7 @@ def transcribe(config: PipelineConfig) -> int:
     records = read_manifest(config.paths.raw_data)
     if not records:
         say("No videos in manifest.")
-        say("Run `python3 -m larchenko_kb discover` or `import-list` first.")
+        say("Run `python3 -m video_kb discover` or `import-list` first.")
         return 0
     if config.transcription.engine != "mlx-whisper":
         say(f"Unsupported transcription engine: {config.transcription.engine}")
@@ -252,7 +254,7 @@ def chunk_transcripts(config: PipelineConfig, chunk_minutes: int, overlap_second
     records = read_manifest(config.paths.raw_data)
     if not records:
         say("No videos in manifest.")
-        say("Run `python3 -m larchenko_kb discover` or `import-list` first.")
+        say("Run `python3 -m video_kb discover` or `import-list` first.")
         return 0
 
     chunk_seconds = chunk_minutes * 60
@@ -347,7 +349,7 @@ def extract_knowledge(
 
     if not payloads:
         say("No chunk JSON files found.")
-        say("Run `python3 -m larchenko_kb chunk-transcripts` first.")
+        say("Run `python3 -m video_kb chunk-transcripts` first.")
         return 0
 
     selected_model = model or config.llm.model
@@ -409,7 +411,7 @@ def build_topic_index(config: PipelineConfig) -> int:
     payloads = read_knowledge_payloads(config.paths.raw_data)
     if not payloads:
         say("No extracted knowledge JSON files found.")
-        say("Run `python3 -m larchenko_kb extract-knowledge` first.")
+        say("Run `python3 -m video_kb extract-knowledge` first.")
         return 0
 
     started_at = time.monotonic()
@@ -440,7 +442,7 @@ def build_article_plan(config: PipelineConfig, min_sources: int, max_pages: int 
 
     if not pages:
         say("No topic index pages found.")
-        say("Run `python3 -m larchenko_kb build-topic-index` first.")
+        say("Run `python3 -m video_kb build-topic-index` first.")
         return 0
 
     started_at = time.monotonic()
@@ -477,11 +479,11 @@ def draft_articles(
 
     if not pages:
         say("No article plan pages found.")
-        say("Run `python3 -m larchenko_kb build-article-plan` first.")
+        say("Run `python3 -m video_kb build-article-plan` first.")
         return 0
     if not source_packs:
         say("No source packs found.")
-        say("Run `python3 -m larchenko_kb build-article-plan` first.")
+        say("Run `python3 -m video_kb build-article-plan` first.")
         return 0
 
     selected_model = model or config.llm.model
@@ -562,8 +564,41 @@ def build_vault(config: PipelineConfig) -> int:
     return 0
 
 
+def pipeline_stages() -> dict[str, PipelineStage]:
+    return {
+        "discover": PipelineStage("discover", lambda config: discover(config)),
+        "extract-audio": PipelineStage("extract-audio", lambda config: extract_audio(config)),
+        "validate-audio": PipelineStage("validate-audio", lambda config: validate_audio(config)),
+        "transcribe": PipelineStage("transcribe", lambda config: transcribe(config)),
+        "chunk-transcripts": PipelineStage(
+            "chunk-transcripts",
+            lambda config: chunk_transcripts(
+                config,
+                config.chunking.chunk_minutes,
+                config.chunking.overlap_seconds,
+            ),
+        ),
+        "extract-knowledge": PipelineStage(
+            "extract-knowledge",
+            lambda config: extract_knowledge(config, None, None, None, False, False),
+            expensive=True,
+        ),
+        "build-topic-index": PipelineStage("build-topic-index", lambda config: build_topic_index(config)),
+        "build-article-plan": PipelineStage(
+            "build-article-plan",
+            lambda config: build_article_plan(config, min_sources=2, max_pages=None),
+        ),
+        "draft-articles": PipelineStage(
+            "draft-articles",
+            lambda config: draft_articles(config, None, None, False, False),
+            expensive=True,
+        ),
+        "build-vault": PipelineStage("build-vault", lambda config: build_vault(config)),
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="larchenko-kb")
+    parser = argparse.ArgumentParser(prog="video-kb")
     parser.add_argument(
         "--config",
         type=Path,
@@ -571,6 +606,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to config.toml. Defaults to ./config.toml, then ./config.example.toml.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    init_parser = subparsers.add_parser("init", help="Create a new video-kb project folder.")
+    init_parser.add_argument("project_dir", type=Path)
+    init_parser.add_argument("--force", action="store_true")
+
+    config_parser = subparsers.add_parser("config", help="Update config.toml project settings.")
+    config_parser.add_argument("--videos", type=Path, default=None)
+    config_parser.add_argument("--raw", type=Path, default=None)
+    config_parser.add_argument("--vault", type=Path, default=None)
+    config_parser.add_argument("--language", default=None)
+
+    run_parser = subparsers.add_parser("run", help="Run the full pipeline in order.")
+    run_parser.add_argument("--from", dest="from_stage", default=None)
+    run_parser.add_argument("--to", dest="to_stage", default=None)
+    run_parser.add_argument("--dry-run", action="store_true")
+    run_parser.add_argument("--yes", action="store_true")
 
     subparsers.add_parser("status", help="Show configured paths and current manifest count.")
     discover_parser = subparsers.add_parser(
@@ -692,7 +743,41 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.command == "init":
+        try:
+            result = init_project(args.project_dir, force=args.force)
+        except FileExistsError as exc:
+            say(str(exc))
+            return 1
+        say(f"Created video-kb project: {result.project_dir}")
+        return 0
+
+    if args.command == "config":
+        update_project_config(
+            Path("config.toml"),
+            ProjectSettings(
+                videos=args.videos,
+                raw=args.raw,
+                vault=args.vault,
+                language=args.language,
+            ),
+        )
+        say("Updated config.toml")
+        return 0
+
     config = load_config(args.config)
+
+    if args.command == "run":
+        return run_selected_stages(
+            config,
+            pipeline_stages(),
+            from_stage=args.from_stage,
+            to_stage=args.to_stage,
+            assume_yes=args.yes,
+            dry_run=args.dry_run,
+            say=say,
+        )
 
     if args.command == "status":
         print_status(config)

@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from larchenko_kb.draft_articles import (
+from video_kb.draft_articles import (
     OpenAIArticleClient,
     build_article_prompt,
     count_draft_articles,
@@ -110,7 +110,7 @@ def test_openai_article_client_strips_api_key_whitespace() -> None:
 
 def test_openai_article_client_rejects_placeholder_api_key() -> None:
     try:
-        OpenAIArticleClient(api_key="sk-proj-ТВОЙ_НОВЫЙ_КЛЮЧ", model="gpt-5.4-mini")
+        OpenAIArticleClient(api_key="placeholder-api-key", model="gpt-5.4-mini")
     except RuntimeError as exc:
         assert "OPENAI_API_KEY" in str(exc)
     else:

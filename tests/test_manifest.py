@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from larchenko_kb.manifest import (
+from video_kb.manifest import (
     VideoRecord,
     iter_video_files,
     read_video_path_list,

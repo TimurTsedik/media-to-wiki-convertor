@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from larchenko_kb.chunks import (
+from video_kb.chunks import (
     Chunk,
     chunk_segments,
     chunk_transcript_record,
@@ -8,7 +8,7 @@ from larchenko_kb.chunks import (
     format_seconds,
     read_transcript_segments,
 )
-from larchenko_kb.manifest import VideoRecord
+from video_kb.manifest import VideoRecord
 
 
 def make_record(video_id: str = "abc123") -> VideoRecord:

@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from larchenko_kb.manifest import VideoRecord
+from video_kb.manifest import VideoRecord
 
 
 @dataclass(frozen=True)

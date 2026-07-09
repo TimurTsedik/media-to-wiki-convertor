@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from larchenko_kb.knowledge import default_transport, validate_openai_api_key
+from video_kb.knowledge import default_transport, validate_openai_api_key
 
 
 ARTICLE_SYSTEM_PROMPT = """Ты пишешь учебные Markdown-статьи для Obsidian wiki по материалам тренинга.

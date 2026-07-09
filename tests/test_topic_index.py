@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from larchenko_kb.topic_index import (
+from video_kb.topic_index import (
     build_topic_index,
     count_topic_index_pages,
     normalize_index_key,

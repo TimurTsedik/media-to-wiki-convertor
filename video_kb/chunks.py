@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-from larchenko_kb.manifest import VideoRecord
-from larchenko_kb.transcription import transcript_paths
+from video_kb.manifest import VideoRecord
+from video_kb.transcription import transcript_paths
 
 
 @dataclass(frozen=True)

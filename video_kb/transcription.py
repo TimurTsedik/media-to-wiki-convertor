@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Callable
 import wave
 
-from larchenko_kb.audio import audio_is_valid, audio_output_path, is_non_empty_file
-from larchenko_kb.manifest import VideoRecord
+from video_kb.audio import audio_is_valid, audio_output_path, is_non_empty_file
+from video_kb.manifest import VideoRecord
 
 
 @dataclass(frozen=True)

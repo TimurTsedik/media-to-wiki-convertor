@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from larchenko_kb.article_plan import (
+from video_kb.article_plan import (
     build_article_plan,
     build_source_pack,
     canonical_article_key,

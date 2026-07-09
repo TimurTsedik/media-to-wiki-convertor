@@ -1,4 +1,4 @@
-from larchenko_kb.cli import main
+from video_kb.cli import main
 
 
 if __name__ == "__main__":

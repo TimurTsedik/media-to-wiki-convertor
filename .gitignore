@@ -18,9 +18,11 @@ build/
 
 # Generated and heavy data. The source disk is read-only; keep all derivatives local.
 raw data/
+raw-data/
 
 # Obsidian vault has its own git repository.
 larchenko_training_vault/
+vault/
 
 # Local secrets/config overrides.
 config.toml

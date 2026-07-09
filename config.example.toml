@@ -1,10 +1,10 @@
 [paths]
-video_source = "/Volumes/My Passport/ЛАРЧЕНКО"
-raw_data = "/Users/timur555/Documents/PycharmProjects/Other/larchenko training/raw data"
-vault = "/Users/timur555/Documents/PycharmProjects/Other/larchenko training/larchenko_training_vault"
+video_source = "./videos"
+raw_data = "./raw-data"
+vault = "./vault"
 
 [discover]
-video_extensions = [".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm"]
+video_extensions = [".mp4", ".mov", ".mkv"]
 max_depth = 8
 
 [transcription]
@@ -13,6 +13,9 @@ model = "mlx-community/whisper-medium"
 language = "ru"
 
 [llm]
-enabled = false
+provider = "openai"
 model = "gpt-5.4-mini"
-chunk_minutes = 12
+
+[chunking]
+chunk_minutes = 10
+overlap_seconds = 120

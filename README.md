@@ -1,104 +1,70 @@
-# Larchenko Training Pipeline
+# video-kb
 
-Small Python pipeline for turning the Larchenko video training archive into a separate Obsidian knowledge base.
+`video-kb` is a local CLI that turns a folder of videos into an Obsidian knowledge base.
 
-## Layout
+## What It Does
 
-```text
-larchenko training/
-  larchenko_kb/              # Python package and CLI
-  tests/                     # Unit tests for the pipeline code
-  raw data/                  # Generated audio, transcripts, chunks, logs
-  larchenko_training_vault/  # Separate Obsidian vault with its own git repo
-```
+1. Discovers videos.
+2. Extracts audio with ffmpeg.
+3. Transcribes locally with mlx-whisper.
+4. Chunks transcripts with overlap.
+5. Extracts structured knowledge with OpenAI.
+6. Drafts wiki articles.
+7. Builds an Obsidian vault with links to sources and transcripts.
 
-The source videos are read from:
+## Requirements
 
-```text
-/Volumes/My Passport/ЛАРЧЕНКО/
-```
+- Python 3.11+
+- ffmpeg
+- macOS Apple Silicon for the default `mlx-whisper` transcription engine
+- OpenAI API key for knowledge extraction and article drafting
 
-The pipeline writes generated raw files to:
-
-```text
-/Users/timur555/Documents/PycharmProjects/Other/larchenko training/raw data/
-```
-
-The final Obsidian notes are written to:
-
-```text
-/Users/timur555/Documents/PycharmProjects/Other/larchenko training/larchenko_training_vault/
-```
-
-## First Commands
-
-```bash
-python3 -m larchenko_kb status
-python3 -m larchenko_kb discover
-python3 -m larchenko_kb status
-```
-
-`discover` creates `raw data/manifest/videos.jsonl`. It is safe to re-run.
-
-If the external disk is slow to list, point discovery at a narrower subfolder:
-
-```bash
-python3 -m larchenko_kb discover --source "/Volumes/My Passport/ЛАРЧЕНКО/<subfolder>"
-```
-
-If Codex cannot list the external disk but your Terminal can, create a text list in Terminal and import it:
-
-```bash
-cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
-ls -1 "/Volumes/My Passport/ЛАРЧЕНКО" > "raw data/manual_video_list.txt"
-python3 -m larchenko_kb import-list \
-  --file "raw data/manual_video_list.txt" \
-  --base "/Volumes/My Passport/ЛАРЧЕНКО"
-```
-
-Audio extraction requires `ffmpeg` on `PATH`:
-
-```bash
-brew install ffmpeg
-python3 -m larchenko_kb extract-audio
-python3 -m larchenko_kb validate-audio
-```
-
-If Codex's terminal stalls on the external drive, run heavy disk/video commands from a fresh normal Terminal window. The pipeline state is file-based, so Codex can continue after Terminal finishes:
-
-```bash
-python3 -m larchenko_kb status
-```
-
-Transcription is local and uses `mlx-whisper` by default:
+## Install For Development
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install mlx-whisper
-.venv/bin/python -m larchenko_kb transcribe
-.venv/bin/python -m larchenko_kb status
+.venv/bin/python -m pip install -e '.[mlx,dev]'
 ```
 
-Transcript outputs are written to `raw data/transcripts/` as `.json`, `.txt`, and `.srt`.
-
-`mlx-whisper` needs access to Metal. If Codex's terminal reports `No Metal device available`, run transcription from a fresh normal Terminal window.
-
-If transcription reports `Invalid data found` or `Operation timed out` while opening a WAV, validate and rebuild the audio files:
+## Quickstart
 
 ```bash
-python3 -m larchenko_kb validate-audio
-python3 -m larchenko_kb extract-audio
-python3 -m larchenko_kb validate-audio
+video-kb init my-training
+cd my-training
+cp .env.example .env
+# edit .env and set OPENAI_API_KEY before LLM stages
+video-kb config --videos "/path/to/videos" --raw "./raw-data" --vault "./vault" --language ru
+video-kb status
+video-kb run --dry-run
+video-kb run --yes
 ```
 
-## Pipeline Stages
+## Cost Warning
 
-1. `discover` - scan the read-only video disk and build a manifest.
-2. `extract-audio` - planned stage for `ffmpeg` extraction.
-3. `transcribe` - planned stage for local Whisper transcription.
-4. `chunk` - planned stage for transcript chunking with timestamps.
-5. `summarize` - planned stage for low-token LLM summarization.
-6. `build-vault` - planned stage for Obsidian Markdown generation.
+The transcription stage is local. The `extract-knowledge` and `draft-articles` stages call
+OpenAI APIs and may cost money. Use `--dry-run`, `--limit`, and `--sample-per-video` before
+full runs.
 
-The first implementation intentionally starts with `status` and `discover` so the project is testable before adding heavyweight audio and model dependencies.
+## Stage Commands
+
+```bash
+video-kb discover
+video-kb extract-audio
+video-kb validate-audio
+video-kb transcribe
+video-kb chunk-transcripts
+video-kb extract-knowledge
+video-kb build-topic-index
+video-kb build-article-plan
+video-kb draft-articles
+video-kb build-vault
+```
+
+## Generated Output
+
+Generated raw data and vault files should stay out of the root repository by default:
+
+- `raw-data/`
+- `vault/`
+- `.env`

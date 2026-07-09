@@ -1,8 +1,8 @@
 from pathlib import Path
 import wave
 
-from larchenko_kb.manifest import VideoRecord
-from larchenko_kb.transcription import (
+from video_kb.manifest import VideoRecord
+from video_kb.transcription import (
     Segment,
     count_existing_transcripts,
     format_elapsed,
