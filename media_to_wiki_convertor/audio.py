@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import shutil
 import subprocess
+import wave
 
 from media_to_wiki_convertor.manifest import VideoRecord
 
@@ -28,24 +29,14 @@ def audio_is_valid(path: Path, timeout_seconds: int = 20) -> bool:
     if not is_non_empty_file(path):
         return False
     try:
-        subprocess.run(
-            [
-                "ffprobe",
-                "-v",
-                "error",
-                "-show_entries",
-                "stream=codec_name,channels,sample_rate",
-                "-of",
-                "default=noprint_wrappers=1",
-                str(path),
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-        )
-        return True
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        with wave.open(str(path), "rb") as wav:
+            return (
+                wav.getnchannels() == 1
+                and wav.getsampwidth() == 2
+                and wav.getframerate() == 16000
+                and wav.getnframes() > 0
+            )
+    except (EOFError, OSError, wave.Error):
         return False
 
 
