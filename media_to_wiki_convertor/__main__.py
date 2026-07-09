@@ -1,4 +1,4 @@
-from video_kb.cli import main
+from media_to_wiki_convertor.cli import main
 
 
 if __name__ == "__main__":

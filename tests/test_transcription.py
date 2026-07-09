@@ -1,8 +1,8 @@
 from pathlib import Path
 import wave
 
-from video_kb.manifest import VideoRecord
-from video_kb.transcription import (
+from media_to_wiki_convertor.manifest import VideoRecord
+from media_to_wiki_convertor.transcription import (
     Segment,
     count_existing_transcripts,
     format_elapsed,

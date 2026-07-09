@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
-from video_kb.manifest import VideoRecord
-from video_kb.transcription import transcript_paths
+from media_to_wiki_convertor.manifest import VideoRecord
+from media_to_wiki_convertor.transcription import transcript_paths
 
 
 @dataclass(frozen=True)

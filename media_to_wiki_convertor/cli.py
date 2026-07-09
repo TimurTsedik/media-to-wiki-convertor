@@ -4,16 +4,16 @@ import argparse
 from pathlib import Path
 import time
 
-from video_kb.article_plan import (
+from media_to_wiki_convertor.article_plan import (
     build_article_plan as build_article_plan_payload,
     count_article_plan_pages,
     read_topic_pages,
     write_article_plan,
 )
-from video_kb.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
-from video_kb.chunks import chunk_transcript_record, count_existing_chunks
-from video_kb.config import PipelineConfig, load_config
-from video_kb.draft_articles import (
+from media_to_wiki_convertor.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
+from media_to_wiki_convertor.chunks import chunk_transcript_record, count_existing_chunks
+from media_to_wiki_convertor.config import PipelineConfig, load_config
+from media_to_wiki_convertor.draft_articles import (
     OpenAIArticleClient,
     build_article_prompt,
     count_draft_articles,
@@ -21,7 +21,7 @@ from video_kb.draft_articles import (
     read_article_pages,
     select_source_packs,
 )
-from video_kb.knowledge import (
+from media_to_wiki_convertor.knowledge import (
     OpenAIKnowledgeClient,
     build_extraction_prompt,
     chunk_payloads,
@@ -29,7 +29,7 @@ from video_kb.knowledge import (
     extract_chunk_knowledge,
     select_chunk_payloads,
 )
-from video_kb.manifest import (
+from media_to_wiki_convertor.manifest import (
     build_video_record,
     iter_video_files,
     manifest_path,
@@ -37,21 +37,21 @@ from video_kb.manifest import (
     read_manifest,
     write_manifest,
 )
-from video_kb.project import ProjectSettings, init_project, update_project_config
-from video_kb.run_pipeline import PipelineStage, run_selected_stages
-from video_kb.transcription import (
+from media_to_wiki_convertor.project import ProjectSettings, init_project, update_project_config
+from media_to_wiki_convertor.run_pipeline import PipelineStage, run_selected_stages
+from media_to_wiki_convertor.transcription import (
     append_transcription_log,
     count_existing_transcripts,
     format_elapsed,
     transcribe_record,
 )
-from video_kb.topic_index import (
+from media_to_wiki_convertor.topic_index import (
     build_topic_index as build_topic_index_payload,
     count_topic_index_pages,
     read_knowledge_payloads,
     write_topic_index,
 )
-from video_kb.vault import build_obsidian_vault
+from media_to_wiki_convertor.vault import build_obsidian_vault
 
 
 def say(message: str) -> None:
@@ -131,7 +131,7 @@ def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | 
 
 def planned_stage(name: str) -> None:
     say(f"{name} is planned, but not implemented yet.")
-    say("Run `python3 -m video_kb discover` first to create the video manifest.")
+    say("Run `python3 -m media_to_wiki_convertor discover` first to create the video manifest.")
 
 
 def extract_audio(config: PipelineConfig) -> int:
@@ -139,7 +139,7 @@ def extract_audio(config: PipelineConfig) -> int:
     records = read_manifest(config.paths.raw_data)
     if not records:
         say("No videos in manifest.")
-        say("Run `python3 -m video_kb discover` first.")
+        say("Run `python3 -m media_to_wiki_convertor discover` first.")
         return 0
     if not has_ffmpeg():
         say("ffmpeg is not installed or is not available on PATH.")
@@ -195,7 +195,7 @@ def transcribe(config: PipelineConfig) -> int:
     records = read_manifest(config.paths.raw_data)
     if not records:
         say("No videos in manifest.")
-        say("Run `python3 -m video_kb discover` or `import-list` first.")
+        say("Run `python3 -m media_to_wiki_convertor discover` or `import-list` first.")
         return 0
     if config.transcription.engine != "mlx-whisper":
         say(f"Unsupported transcription engine: {config.transcription.engine}")
@@ -254,7 +254,7 @@ def chunk_transcripts(config: PipelineConfig, chunk_minutes: int, overlap_second
     records = read_manifest(config.paths.raw_data)
     if not records:
         say("No videos in manifest.")
-        say("Run `python3 -m video_kb discover` or `import-list` first.")
+        say("Run `python3 -m media_to_wiki_convertor discover` or `import-list` first.")
         return 0
 
     chunk_seconds = chunk_minutes * 60
@@ -349,7 +349,7 @@ def extract_knowledge(
 
     if not payloads:
         say("No chunk JSON files found.")
-        say("Run `python3 -m video_kb chunk-transcripts` first.")
+        say("Run `python3 -m media_to_wiki_convertor chunk-transcripts` first.")
         return 0
 
     selected_model = model or config.llm.model
@@ -411,7 +411,7 @@ def build_topic_index(config: PipelineConfig) -> int:
     payloads = read_knowledge_payloads(config.paths.raw_data)
     if not payloads:
         say("No extracted knowledge JSON files found.")
-        say("Run `python3 -m video_kb extract-knowledge` first.")
+        say("Run `python3 -m media_to_wiki_convertor extract-knowledge` first.")
         return 0
 
     started_at = time.monotonic()
@@ -442,7 +442,7 @@ def build_article_plan(config: PipelineConfig, min_sources: int, max_pages: int 
 
     if not pages:
         say("No topic index pages found.")
-        say("Run `python3 -m video_kb build-topic-index` first.")
+        say("Run `python3 -m media_to_wiki_convertor build-topic-index` first.")
         return 0
 
     started_at = time.monotonic()
@@ -479,11 +479,11 @@ def draft_articles(
 
     if not pages:
         say("No article plan pages found.")
-        say("Run `python3 -m video_kb build-article-plan` first.")
+        say("Run `python3 -m media_to_wiki_convertor build-article-plan` first.")
         return 0
     if not source_packs:
         say("No source packs found.")
-        say("Run `python3 -m video_kb build-article-plan` first.")
+        say("Run `python3 -m media_to_wiki_convertor build-article-plan` first.")
         return 0
 
     selected_model = model or config.llm.model
@@ -598,7 +598,7 @@ def pipeline_stages() -> dict[str, PipelineStage]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="video-kb")
+    parser = argparse.ArgumentParser(prog="media-to-wiki-convertor")
     parser.add_argument(
         "--config",
         type=Path,
@@ -607,7 +607,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    init_parser = subparsers.add_parser("init", help="Create a new video-kb project folder.")
+    init_parser = subparsers.add_parser("init", help="Create a new media-to-wiki-convertor project folder.")
     init_parser.add_argument("project_dir", type=Path)
     init_parser.add_argument("--force", action="store_true")
 
@@ -750,7 +750,7 @@ def main(argv: list[str] | None = None) -> int:
         except FileExistsError as exc:
             say(str(exc))
             return 1
-        say(f"Created video-kb project: {result.project_dir}")
+        say(f"Created media-to-wiki-convertor project: {result.project_dir}")
         return 0
 
     if args.command == "config":

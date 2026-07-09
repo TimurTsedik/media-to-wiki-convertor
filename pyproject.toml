@@ -3,7 +3,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "video-kb"
+name = "media-to-wiki-convertor"
 version = "0.1.0"
 description = "Local CLI for turning video folders into Obsidian knowledge bases."
 requires-python = ">=3.11"
@@ -14,11 +14,11 @@ mlx = ["mlx-whisper"]
 dev = ["pytest", "ruff"]
 
 [project.scripts]
-video-kb = "video_kb.cli:main"
+media-to-wiki-convertor = "media_to_wiki_convertor.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["video_kb*"]
+include = ["media_to_wiki_convertor*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -9,7 +9,7 @@ import shutil
 from typing import Any
 from urllib.parse import quote
 
-from video_kb.manifest import VideoRecord, read_manifest
+from media_to_wiki_convertor.manifest import VideoRecord, read_manifest
 
 
 MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts")

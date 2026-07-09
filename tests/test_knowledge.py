@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from video_kb.knowledge import (
+from media_to_wiki_convertor.knowledge import (
     KNOWLEDGE_SCHEMA,
     OpenAIKnowledgeClient,
     build_extraction_prompt,

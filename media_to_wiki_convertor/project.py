@@ -39,13 +39,13 @@ raw-data/
 vault/
 """
 
-DEFAULT_LOCAL_README = """# Local Video KB Project
+DEFAULT_LOCAL_README = """# Local Media To Wiki Convertor Project
 
 Run:
 
 ```bash
-video-kb status
-video-kb run
+media-to-wiki-convertor status
+media-to-wiki-convertor run
 ```
 
 Generated files live in `raw-data/` and `vault/`.

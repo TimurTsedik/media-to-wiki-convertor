@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from video_kb.vault import build_obsidian_vault, count_vault_articles, file_link, note_path_for_title
+from media_to_wiki_convertor.vault import build_obsidian_vault, count_vault_articles, file_link, note_path_for_title
 
 
 def write_json(path: Path, payload: object) -> None:

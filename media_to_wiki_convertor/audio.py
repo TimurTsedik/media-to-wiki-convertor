@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from video_kb.manifest import VideoRecord
+from media_to_wiki_convertor.manifest import VideoRecord
 
 
 @dataclass(frozen=True)

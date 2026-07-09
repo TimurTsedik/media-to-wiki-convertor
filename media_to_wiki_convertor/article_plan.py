@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from video_kb.topic_index import normalize_index_key, slugify_key
+from media_to_wiki_convertor.topic_index import normalize_index_key, slugify_key
 
 
 def canonical_article_key(title: str) -> str:

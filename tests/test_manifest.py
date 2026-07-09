@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from video_kb.manifest import (
+from media_to_wiki_convertor.manifest import (
     VideoRecord,
     iter_video_files,
     read_video_path_list,

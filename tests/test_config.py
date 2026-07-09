@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-from video_kb.config import load_config, load_dotenv
+from media_to_wiki_convertor.config import load_config, load_dotenv
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:

@@ -1,4 +1,4 @@
-from video_kb.run_pipeline import STAGE_NAMES, select_stages
+from media_to_wiki_convertor.run_pipeline import STAGE_NAMES, select_stages
 
 
 def test_select_stages_returns_full_pipeline_by_default() -> None:

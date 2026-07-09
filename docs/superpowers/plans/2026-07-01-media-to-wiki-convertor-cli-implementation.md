@@ -1,10 +1,10 @@
-# Video KB CLI Implementation Plan
+# Media To Wiki Convertor CLI Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Convert the current local `larchenko_kb` pipeline into a GitHub-ready generic CLI named `video-kb`.
+**Goal:** Convert the current local `larchenko_kb` pipeline into a GitHub-ready generic CLI named `media-to-wiki-convertor`.
 
-**Architecture:** Keep the existing pipeline modules and add a thin generic project layer first. The CLI will read project-local `config.toml`, create reusable project scaffolds, orchestrate existing stages, and only then rename the package from `larchenko_kb` to `video_kb`.
+**Architecture:** Keep the existing pipeline modules and add a thin generic project layer first. The CLI will read project-local `config.toml`, create reusable project scaffolds, orchestrate existing stages, and only then rename the package from `larchenko_kb` to `media_to_wiki_convertor`.
 
 **Tech Stack:** Python 3.11+, stdlib `argparse`, `pathlib`, `tomllib`, `tomli_w`, existing file-based pipeline, optional `mlx-whisper`, OpenAI via current stdlib HTTP client, Obsidian Markdown output.
 
@@ -15,7 +15,7 @@
 Create:
 
 - `larchenko_kb/project.py` - project scaffolding templates and `init`/`config` helpers while the package is still named `larchenko_kb`.
-- `larchenko_kb/run_pipeline.py` - ordered stage runner for `video-kb run`.
+- `larchenko_kb/run_pipeline.py` - ordered stage runner for `media-to-wiki-convertor run`.
 - `tests/test_project.py` - tests for project init/config behavior.
 - `tests/test_run_pipeline.py` - tests for full-pipeline orchestration without running heavy stages.
 - `.github/workflows/test.yml` - GitHub Actions test workflow.
@@ -25,7 +25,7 @@ Modify:
 
 - `larchenko_kb/config.py` - load config from the current project directory instead of the package directory by default.
 - `larchenko_kb/cli.py` - add `init`, `config`, and `run`; expose generic help text.
-- `pyproject.toml` - rename public project metadata, add optional dependencies, expose `video-kb`.
+- `pyproject.toml` - rename public project metadata, add optional dependencies, expose `media-to-wiki-convertor`.
 - `README.md` - replace Larchenko-specific docs with generic quickstart and pipeline docs.
 - `.gitignore` - ensure generic generated outputs are ignored.
 - `.env.example` - keep safe secret template.
@@ -35,9 +35,9 @@ Modify:
 
 Final rename task:
 
-- Move `larchenko_kb/` to `video_kb/`.
+- Move `larchenko_kb/` to `media_to_wiki_convertor/`.
 - Update imports in package and tests.
-- Update `python -m` examples from `larchenko_kb` to `video_kb`.
+- Update `python -m` examples from `larchenko_kb` to `media_to_wiki_convertor`.
 
 ## Task 1: Make Config Project-Local
 
@@ -464,13 +464,13 @@ raw-data/
 vault/
 """
 
-DEFAULT_LOCAL_README = """# Local Video KB Project
+DEFAULT_LOCAL_README = """# Local Media To Wiki Convertor Project
 
 Run:
 
 ```bash
-video-kb status
-video-kb run
+media-to-wiki-convertor status
+media-to-wiki-convertor run
 ```
 
 Generated files live in `raw-data/` and `vault/`.
@@ -556,7 +556,7 @@ from larchenko_kb.project import ProjectSettings, init_project, update_project_c
 Add parsers in `build_parser()`:
 
 ```python
-    init_parser = subparsers.add_parser("init", help="Create a new video-kb project folder.")
+    init_parser = subparsers.add_parser("init", help="Create a new media-to-wiki-convertor project folder.")
     init_parser.add_argument("project_dir", type=Path)
     init_parser.add_argument("--force", action="store_true")
 
@@ -579,7 +579,7 @@ def main(argv: list[str] | None = None) -> int:
         except FileExistsError as exc:
             say(str(exc))
             return 1
-        say(f"Created video-kb project: {result.project_dir}")
+        say(f"Created media-to-wiki-convertor project: {result.project_dir}")
         return 0
 
     if args.command == "config":
@@ -920,13 +920,13 @@ from pathlib import Path
 import tomllib
 
 data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
-assert data["project"]["name"] == "video-kb"
-assert data["project"]["scripts"]["video-kb"] == "larchenko_kb.cli:main"
+assert data["project"]["name"] == "media-to-wiki-convertor"
+assert data["project"]["scripts"]["media-to-wiki-convertor"] == "larchenko_kb.cli:main"
 assert "mlx" in data["project"]["optional-dependencies"]
 assert "dev" in data["project"]["optional-dependencies"]
 readme = Path("README.md").read_text(encoding="utf-8")
-assert "video-kb init" in readme
-assert "video-kb run" in readme
+assert "media-to-wiki-convertor init" in readme
+assert "media-to-wiki-convertor run" in readme
 assert "OPENAI_API_KEY" in readme
 assert Path("LICENSE").exists()
 assert Path(".github/workflows/test.yml").exists()
@@ -942,7 +942,7 @@ Set:
 
 ```toml
 [project]
-name = "video-kb"
+name = "media-to-wiki-convertor"
 version = "0.1.0"
 description = "Local CLI for turning video folders into Obsidian knowledge bases."
 requires-python = ">=3.11"
@@ -953,7 +953,7 @@ mlx = ["mlx-whisper"]
 dev = ["pytest", "ruff"]
 
 [project.scripts]
-video-kb = "larchenko_kb.cli:main"
+media-to-wiki-convertor = "larchenko_kb.cli:main"
 larchenko-kb = "larchenko_kb.cli:main"
 ```
 
@@ -964,9 +964,9 @@ Keep the temporary `larchenko-kb` script until the final rename task is complete
 Use this structure in `README.md`:
 
 ```markdown
-# video-kb
+# media-to-wiki-convertor
 
-`video-kb` is a local CLI that turns a folder of videos into an Obsidian knowledge base.
+`media-to-wiki-convertor` is a local CLI that turns a folder of videos into an Obsidian knowledge base.
 
 ## What It Does
 
@@ -996,13 +996,13 @@ python3 -m venv .venv
 ## Quickstart
 
 ```bash
-video-kb init my-training
+media-to-wiki-convertor init my-training
 cd my-training
 cp .env.example .env
-video-kb config --videos "/path/to/videos" --raw "./raw-data" --vault "./vault" --language ru
-video-kb status
-video-kb run --dry-run
-video-kb run --yes
+media-to-wiki-convertor config --videos "/path/to/videos" --raw "./raw-data" --vault "./vault" --language ru
+media-to-wiki-convertor status
+media-to-wiki-convertor run --dry-run
+media-to-wiki-convertor run --yes
 ```
 
 ## Cost Warning
@@ -1012,16 +1012,16 @@ The transcription stage is local. The `extract-knowledge` and `draft-articles` s
 ## Stage Commands
 
 ```bash
-video-kb discover
-video-kb extract-audio
-video-kb validate-audio
-video-kb transcribe
-video-kb chunk-transcripts
-video-kb extract-knowledge
-video-kb build-topic-index
-video-kb build-article-plan
-video-kb draft-articles
-video-kb build-vault
+media-to-wiki-convertor discover
+media-to-wiki-convertor extract-audio
+media-to-wiki-convertor validate-audio
+media-to-wiki-convertor transcribe
+media-to-wiki-convertor chunk-transcripts
+media-to-wiki-convertor extract-knowledge
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan
+media-to-wiki-convertor draft-articles
+media-to-wiki-convertor build-vault
 ```
 
 ## Generated Output
@@ -1123,11 +1123,11 @@ git add pyproject.toml README.md .gitignore .env.example LICENSE .github/workflo
 git commit -m "docs: prepare generic cli package"
 ```
 
-## Task 5: Rename Package To `video_kb`
+## Task 5: Rename Package To `media_to_wiki_convertor`
 
 **Files:**
-- Move: `larchenko_kb/` to `video_kb/`
-- Modify: all Python imports in `video_kb/*.py`
+- Move: `larchenko_kb/` to `media_to_wiki_convertor/`
+- Modify: all Python imports in `media_to_wiki_convertor/*.py`
 - Modify: all tests importing `larchenko_kb`
 - Modify: `pyproject.toml`
 - Modify: README command examples that use `python -m larchenko_kb`
@@ -1138,7 +1138,7 @@ Run:
 
 ```bash
 cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
-git mv larchenko_kb video_kb
+git mv larchenko_kb media_to_wiki_convertor
 ```
 
 - [ ] **Step 2: Rewrite imports**
@@ -1150,10 +1150,10 @@ cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
 python3 - <<'PY'
 from pathlib import Path
 
-for root in [Path("video_kb"), Path("tests")]:
+for root in [Path("media_to_wiki_convertor"), Path("tests")]:
     for path in root.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
-        text = text.replace("larchenko_kb", "video_kb")
+        text = text.replace("larchenko_kb", "media_to_wiki_convertor")
         path.write_text(text, encoding="utf-8")
 PY
 ```
@@ -1164,21 +1164,21 @@ Set scripts and package include:
 
 ```toml
 [project.scripts]
-video-kb = "video_kb.cli:main"
+media-to-wiki-convertor = "media_to_wiki_convertor.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["video_kb*"]
+include = ["media_to_wiki_convertor*"]
 ```
 
 Remove the temporary `larchenko-kb` script.
 
-- [ ] **Step 4: Update `video_kb/__main__.py`**
+- [ ] **Step 4: Update `media_to_wiki_convertor/__main__.py`**
 
 Ensure it imports:
 
 ```python
-from video_kb.cli import main
+from media_to_wiki_convertor.cli import main
 
 if __name__ == "__main__":
     raise SystemExit(main())
@@ -1191,14 +1191,14 @@ Run:
 ```bash
 cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B - <<'PY'
-import video_kb
-from video_kb.cli import main
-from video_kb.config import load_config
-print("video_kb imports: OK")
+import media_to_wiki_convertor
+from media_to_wiki_convertor.cli import main
+from media_to_wiki_convertor.config import load_config
+print("media_to_wiki_convertor imports: OK")
 PY
 ```
 
-Expected: `video_kb imports: OK`.
+Expected: `media_to_wiki_convertor imports: OK`.
 
 - [ ] **Step 6: Run full manual test suite**
 
@@ -1265,8 +1265,8 @@ Run:
 
 ```bash
 cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
-.venv/bin/python -B -m video_kb --help
-.venv/bin/python -B -m video_kb run --dry-run --from build-topic-index --to build-vault
+.venv/bin/python -B -m media_to_wiki_convertor --help
+.venv/bin/python -B -m media_to_wiki_convertor run --dry-run --from build-topic-index --to build-vault
 ```
 
 Expected: help output for the CLI; dry run prints selected stages and does not call OpenAI.
@@ -1274,9 +1274,9 @@ Expected: help output for the CLI; dry run prints selected stages and does not c
 - [ ] **Step 8: Commit**
 
 ```bash
-git add video_kb tests pyproject.toml README.md
+git add media_to_wiki_convertor tests pyproject.toml README.md
 git add -u larchenko_kb
-git commit -m "refactor: rename package to video_kb"
+git commit -m "refactor: rename package to media_to_wiki_convertor"
 ```
 
 ## Task 6: Final GitHub Readiness Check
@@ -1290,7 +1290,7 @@ Run:
 
 ```bash
 cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
-rg -n "Larchenko|larchenko|ЛАРЧЕНКО|timur555|My Passport|PycharmProjects" README.md pyproject.toml config.example.toml .env.example video_kb tests docs/superpowers/specs docs/superpowers/plans
+rg -n "Larchenko|larchenko|ЛАРЧЕНКО|timur555|My Passport|PycharmProjects" README.md pyproject.toml config.example.toml .env.example media_to_wiki_convertor tests docs/superpowers/specs docs/superpowers/plans
 ```
 
 Expected: no matches except historical design/plan docs where paths appear in command examples. If README, package code, tests, or config examples match, replace them with generic paths.
@@ -1316,9 +1316,9 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B - <<'PY'
 import tomllib
 from pathlib import Path
 data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
-assert data["project"]["name"] == "video-kb"
-assert data["project"]["scripts"]["video-kb"] == "video_kb.cli:main"
-assert data["tool"]["setuptools"]["packages"]["find"]["include"] == ["video_kb*"]
+assert data["project"]["name"] == "media-to-wiki-convertor"
+assert data["project"]["scripts"]["media-to-wiki-convertor"] == "media_to_wiki_convertor.cli:main"
+assert data["tool"]["setuptools"]["packages"]["find"]["include"] == ["media_to_wiki_convertor*"]
 print("metadata: OK")
 PY
 ```
@@ -1333,7 +1333,7 @@ Run:
 cd "/Users/timur555/Documents/PycharmProjects/Other/larchenko training"
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B - <<'PY'
 from pathlib import Path
-for path in [*Path("video_kb").glob("*.py"), *Path("tests").glob("test_*.py")]:
+for path in [*Path("media_to_wiki_convertor").glob("*.py"), *Path("tests").glob("test_*.py")]:
     compile(path.read_text(encoding="utf-8"), str(path), "exec")
 print("source compile check: OK")
 PY
@@ -1354,7 +1354,7 @@ Expected: all tests pass.
 If Step 1-4 required edits:
 
 ```bash
-git add README.md pyproject.toml config.example.toml .gitignore video_kb tests
+git add README.md pyproject.toml config.example.toml .gitignore media_to_wiki_convertor tests
 git commit -m "chore: finish github-ready cli polish"
 ```
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from video_kb.config import PipelineConfig
+from media_to_wiki_convertor.config import PipelineConfig
 
 
 STAGE_NAMES = [

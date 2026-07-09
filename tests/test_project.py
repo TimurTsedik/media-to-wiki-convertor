@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from video_kb.project import ProjectSettings, init_project, update_project_config
+from media_to_wiki_convertor.project import ProjectSettings, init_project, update_project_config
 
 
 def test_init_project_creates_generic_project_layout(tmp_path: Path) -> None:

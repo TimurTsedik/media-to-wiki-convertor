@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from video_kb.chunks import (
+from media_to_wiki_convertor.chunks import (
     Chunk,
     chunk_segments,
     chunk_transcript_record,
@@ -8,7 +8,7 @@ from video_kb.chunks import (
     format_seconds,
     read_transcript_segments,
 )
-from video_kb.manifest import VideoRecord
+from media_to_wiki_convertor.manifest import VideoRecord
 
 
 def make_record(video_id: str = "abc123") -> VideoRecord:

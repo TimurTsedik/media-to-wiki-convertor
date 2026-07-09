@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Callable
 import wave
 
-from video_kb.audio import audio_is_valid, audio_output_path, is_non_empty_file
-from video_kb.manifest import VideoRecord
+from media_to_wiki_convertor.audio import audio_is_valid, audio_output_path, is_non_empty_file
+from media_to_wiki_convertor.manifest import VideoRecord
 
 
 @dataclass(frozen=True)

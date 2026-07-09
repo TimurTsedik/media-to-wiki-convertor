@@ -1,8 +1,8 @@
-# Video KB CLI Design
+# Media To Wiki Convertor CLI Design
 
 ## Goal
 
-Turn the current local training pipeline into a reusable GitHub-ready CLI package named `video-kb`, with Python package name `video_kb`.
+Turn the current local training pipeline into a reusable GitHub-ready CLI package named `media-to-wiki-convertor`, with Python package name `media_to_wiki_convertor`.
 
 The product should let a user turn a local folder of videos into an Obsidian vault through a resumable, file-based pipeline:
 
@@ -39,20 +39,20 @@ The user should be able to:
 Public command:
 
 ```bash
-video-kb
+media-to-wiki-convertor
 ```
 
 Python package:
 
 ```text
-video_kb
+media_to_wiki_convertor
 ```
 
-The current package `larchenko_kb` will be migrated to `video_kb` after the generic project behavior is in place.
+The current package `larchenko_kb` will be migrated to `media_to_wiki_convertor` after the generic project behavior is in place.
 
 ## Project Model
 
-A `video-kb` project is a normal folder containing:
+A `media-to-wiki-convertor` project is a normal folder containing:
 
 ```text
 my-training/
@@ -117,7 +117,7 @@ The CLI must never print API keys.
 ### Initialize
 
 ```bash
-video-kb init my-training
+media-to-wiki-convertor init my-training
 ```
 
 Creates:
@@ -134,7 +134,7 @@ It must not overwrite existing non-empty files unless the user passes an explici
 ### Configure
 
 ```bash
-video-kb config \
+media-to-wiki-convertor config \
   --videos "/path/to/videos" \
   --raw "./raw-data" \
   --vault "./vault" \
@@ -146,7 +146,7 @@ Updates `config.toml` without touching generated artifacts.
 ### Status
 
 ```bash
-video-kb status
+media-to-wiki-convertor status
 ```
 
 Shows:
@@ -165,7 +165,7 @@ Shows:
 ### Full Pipeline
 
 ```bash
-video-kb run
+media-to-wiki-convertor run
 ```
 
 Runs all stages in order. It should resume by default and skip completed outputs.
@@ -173,10 +173,10 @@ Runs all stages in order. It should resume by default and skip completed outputs
 Options:
 
 ```bash
-video-kb run --from transcribe
-video-kb run --to build-vault
-video-kb run --dry-run
-video-kb run --yes
+media-to-wiki-convertor run --from transcribe
+media-to-wiki-convertor run --to build-vault
+media-to-wiki-convertor run --dry-run
+media-to-wiki-convertor run --yes
 ```
 
 Before expensive LLM stages, the CLI should print a cost/control warning and ask for confirmation unless `--yes` is provided.
@@ -186,17 +186,17 @@ Before expensive LLM stages, the CLI should print a cost/control warning and ask
 The existing stage commands remain available:
 
 ```bash
-video-kb discover
-video-kb import-list --file videos.txt --base "/path/to/videos"
-video-kb extract-audio
-video-kb validate-audio
-video-kb transcribe
-video-kb chunk-transcripts
-video-kb extract-knowledge
-video-kb build-topic-index
-video-kb build-article-plan
-video-kb draft-articles
-video-kb build-vault
+media-to-wiki-convertor discover
+media-to-wiki-convertor import-list --file videos.txt --base "/path/to/videos"
+media-to-wiki-convertor extract-audio
+media-to-wiki-convertor validate-audio
+media-to-wiki-convertor transcribe
+media-to-wiki-convertor chunk-transcripts
+media-to-wiki-convertor extract-knowledge
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan
+media-to-wiki-convertor draft-articles
+media-to-wiki-convertor build-vault
 ```
 
 Aliases can exist, but documentation should use one canonical command per stage.
@@ -280,10 +280,10 @@ The default behavior should prefer skipping completed artifacts over recomputing
 
 ```toml
 [project]
-name = "video-kb"
+name = "media-to-wiki-convertor"
 
 [project.scripts]
-video-kb = "video_kb.cli:main"
+media-to-wiki-convertor = "media_to_wiki_convertor.cli:main"
 
 [project.optional-dependencies]
 mlx = ["mlx-whisper"]
@@ -296,7 +296,7 @@ Core dependencies should stay small. Heavy or platform-specific dependencies sho
 
 Before publishing:
 
-- rename package from `larchenko_kb` to `video_kb`;
+- rename package from `larchenko_kb` to `media_to_wiki_convertor`;
 - update imports and tests;
 - update README with generic quickstart;
 - add LICENSE;
@@ -314,7 +314,7 @@ Do this in small, safe commits:
 2. Add `init` and `config` commands.
 3. Add `run` orchestration command.
 4. Update README for the generic CLI.
-5. Rename package and command from `larchenko_kb` to `video_kb` / `video-kb`.
+5. Rename package and command from `larchenko_kb` to `media_to_wiki_convertor` / `media-to-wiki-convertor`.
 6. Add GitHub workflow and packaging polish.
 
 This order keeps the working pipeline usable throughout the migration.

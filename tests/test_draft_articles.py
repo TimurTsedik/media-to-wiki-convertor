@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from video_kb.draft_articles import (
+from media_to_wiki_convertor.draft_articles import (
     OpenAIArticleClient,
     build_article_prompt,
     count_draft_articles,

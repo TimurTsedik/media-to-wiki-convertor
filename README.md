@@ -1,6 +1,6 @@
-# video-kb
+# media-to-wiki-convertor
 
-`video-kb` is a local CLI that turns a folder of videos into an Obsidian knowledge base.
+`media-to-wiki-convertor` is a local CLI that turns a folder of videos into an Obsidian knowledge base.
 
 ## What It Does
 
@@ -30,14 +30,14 @@ python3 -m venv .venv
 ## Quickstart
 
 ```bash
-video-kb init my-training
+media-to-wiki-convertor init my-training
 cd my-training
 cp .env.example .env
 # edit .env and set OPENAI_API_KEY before LLM stages
-video-kb config --videos "/path/to/videos" --raw "./raw-data" --vault "./vault" --language ru
-video-kb status
-video-kb run --dry-run
-video-kb run --yes
+media-to-wiki-convertor config --videos "/path/to/videos" --raw "./raw-data" --vault "./vault" --language ru
+media-to-wiki-convertor status
+media-to-wiki-convertor run --dry-run
+media-to-wiki-convertor run --yes
 ```
 
 ## Cost Warning
@@ -49,16 +49,16 @@ full runs.
 ## Stage Commands
 
 ```bash
-video-kb discover
-video-kb extract-audio
-video-kb validate-audio
-video-kb transcribe
-video-kb chunk-transcripts
-video-kb extract-knowledge
-video-kb build-topic-index
-video-kb build-article-plan
-video-kb draft-articles
-video-kb build-vault
+media-to-wiki-convertor discover
+media-to-wiki-convertor extract-audio
+media-to-wiki-convertor validate-audio
+media-to-wiki-convertor transcribe
+media-to-wiki-convertor chunk-transcripts
+media-to-wiki-convertor extract-knowledge
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan
+media-to-wiki-convertor draft-articles
+media-to-wiki-convertor build-vault
 ```
 
 ## Generated Output
