@@ -4,7 +4,7 @@
 [![CLI](https://img.shields.io/badge/interface-CLI-2ea44f)](#quickstart)
 [![Obsidian](https://img.shields.io/badge/output-Obsidian%20vault-7c3aed)](#generated-output)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
-[![Tests](https://github.com/TimurTsedik/media-to-wiki-convertor/actions/workflows/test.yml/badge.svg)](https://github.com/TimurTsedik/media-to-wiki-convertor/actions/workflows/test.yml)
+[![Tests](https://github.com/TimurTsedik/media-to-wiki-convertor/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/TimurTsedik/media-to-wiki-convertor/actions/workflows/test.yml)
 
 Turn long videos into a searchable Obsidian wiki.
 
@@ -199,4 +199,3 @@ Expected result:
 ## Notes
 
 The default transcription engine is optimized for Apple Silicon via `mlx-whisper`. Other engines can be added later behind the same file-based pipeline.
-
