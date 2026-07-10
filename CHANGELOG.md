@@ -6,6 +6,7 @@
 - Generate catalog JSON artifacts and Obsidian catalog indexes under `Index/Catalog/`.
 - Add conservative merge suggestions for deferred topics that look like sections or aliases of planned articles.
 - Link catalog topics back to source chunks and avoid empty wiki pages for deferred topics in source indexes.
+- Add a deterministic `build-course-plan` stage and render `Course Materials/` pages in the vault.
 
 ## 1.0.1 - 2026-07-10
 

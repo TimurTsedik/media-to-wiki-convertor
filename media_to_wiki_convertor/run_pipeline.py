@@ -16,6 +16,7 @@ STAGE_NAMES = [
     "build-topic-index",
     "build-article-plan",
     "build-catalog",
+    "build-course-plan",
     "draft-articles",
     "build-vault",
 ]

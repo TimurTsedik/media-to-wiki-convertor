@@ -19,6 +19,7 @@ It does the boring heavy lifting:
 - splits transcripts into overlapping chunks
 - extracts structured knowledge with the configured LLM provider
 - builds a high-level catalog from planned and deferred topics
+- builds course reference chapters from catalog topics
 - drafts wiki articles
 - builds an Obsidian vault with links back to chunks and transcripts
 
@@ -36,6 +37,7 @@ videos
   -> structured knowledge
   -> article plan
   -> catalog
+  -> course materials plan
   -> drafted wiki pages
   -> Obsidian vault
 ```
@@ -187,6 +189,7 @@ media-to-wiki-convertor extract-knowledge --sample-per-video 1
 media-to-wiki-convertor build-topic-index
 media-to-wiki-convertor build-article-plan
 media-to-wiki-convertor build-catalog
+media-to-wiki-convertor build-course-plan
 media-to-wiki-convertor draft-articles
 media-to-wiki-convertor build-vault
 ```
@@ -212,6 +215,7 @@ You can also run stages one by one.
 | `build-topic-index` | Builds deterministic indexes from extracted knowledge. |
 | `build-article-plan` | Selects article pages and source packs. Defaults to keeping single-source topics; use `--min-sources 2` for stricter filtering. |
 | `build-catalog` | Groups planned articles and deferred topics into deterministic catalog categories with merge suggestions. |
+| `build-course-plan` | Builds deterministic course reference chapters from catalog categories, existing articles, and deferred topics. |
 | `draft-articles` | Uses the configured LLM provider to draft wiki article Markdown. |
 | `build-vault` | Builds the final Obsidian vault. |
 
@@ -226,6 +230,7 @@ media-to-wiki-convertor extract-knowledge --sample-per-video 1
 media-to-wiki-convertor build-topic-index
 media-to-wiki-convertor build-article-plan
 media-to-wiki-convertor build-catalog
+media-to-wiki-convertor build-course-plan
 media-to-wiki-convertor draft-articles
 media-to-wiki-convertor build-vault
 ```
@@ -268,6 +273,7 @@ Generated files are ignored by default:
 The vault contains:
 
 - `00 Home.md`
+- `Course Materials/`
 - `Index/`
 - `Index/Catalog/`
 - `Wiki/`
@@ -284,7 +290,7 @@ The vault contains:
 Expected result:
 
 ```text
-114 passed
+118 passed
 ```
 
 ## Notes

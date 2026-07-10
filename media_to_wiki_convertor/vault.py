@@ -12,7 +12,7 @@ from urllib.parse import quote
 from media_to_wiki_convertor.manifest import VideoRecord, read_manifest
 
 
-MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts")
+MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts", "Course Materials")
 LINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 INVALID_FILENAME_CHARS = set(':\\?#^[]|')
 
@@ -63,6 +63,7 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
     source_notes = write_source_notes(raw_data, vault, source_pages, records_by_id)
     transcript_notes = write_transcript_notes(raw_data, vault, source_pages)
     indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions, records_by_id)
+    write_course_materials(raw_data, vault, pages)
     write_home(raw_data, vault, pages, source_notes, transcript_notes)
 
     return VaultBuildResult(
@@ -204,6 +205,7 @@ def write_home(
 ) -> None:
     summary = read_json_object(raw_data / "article_plan" / "summary.json")
     has_catalog = bool(read_json_list(raw_data / "catalog" / "categories.json"))
+    has_course_materials = bool(read_json_list(raw_data / "course_plan" / "chapters.json"))
     chunks_count = count_files(raw_data / "chunks", "*.json")
     knowledge_count = count_files(raw_data / "extracted_knowledge", "*.json")
     drafts_count = count_files(raw_data / "draft_articles", "*.md")
@@ -213,6 +215,10 @@ def write_home(
     ]
     if has_catalog:
         navigation.append("- [[Index/Catalog|Catalog]]")
+    if has_course_materials:
+        navigation.append(
+            "- [[Course Materials/00 Справочные материалы по курсу|Справочные материалы по курсу]]"
+        )
     navigation.extend(
         [
             "- [[Index/Sources|Sources]]",
@@ -363,6 +369,79 @@ def render_catalog_category(category: dict[str, Any], known_titles: set[str]) ->
             )
     else:
         lines.append("Нет отложенных тем.")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, Any]]) -> int:
+    chapters = read_json_list(raw_data / "course_plan" / "chapters.json")
+    if not chapters:
+        return 0
+
+    known_titles = {str(page.get("title", "")) for page in pages}
+    write_text(
+        vault / "Course Materials" / "00 Справочные материалы по курсу.md",
+        render_course_materials_index(chapters),
+    )
+    for chapter in chapters:
+        key = str(chapter.get("key", "")).strip() or sanitize_filename_part(
+            str(chapter.get("title", "chapter"))
+        )
+        write_text(
+            vault / "Course Materials" / f"{key}.md",
+            render_course_chapter(chapter, known_titles),
+        )
+    return 1 + len(chapters)
+
+
+def render_course_materials_index(chapters: list[dict[str, Any]]) -> str:
+    lines = ["# Справочные материалы по курсу", ""]
+    for chapter in chapters:
+        key = str(chapter.get("key", "chapter"))
+        title = str(chapter.get("title", "Untitled"))
+        article_count = int(chapter.get("article_count", 0))
+        topic_count = int(chapter.get("topic_count", 0))
+        lines.append(
+            f"- [[Course Materials/{key}|{title}]] — "
+            f"articles={article_count}; topics={topic_count}"
+        )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_course_chapter(chapter: dict[str, Any], known_titles: set[str]) -> str:
+    title = str(chapter.get("title", "Untitled"))
+    lines = [
+        f"# {title}",
+        "",
+        "## Карта раздела",
+        "",
+    ]
+    articles = chapter.get("articles", [])
+    if articles:
+        for article in articles:
+            article_title = str(article.get("title", "Untitled"))
+            label = article_link({"title": article_title}) if article_title in known_titles else article_title
+            lines.append(
+                f"- {label} — sources={int(article.get('source_count', 0))}; "
+                f"mentions={int(article.get('count', 0))}"
+            )
+    else:
+        lines.append("Пока нет отдельных wiki-статей.")
+
+    lines.extend(["", "## Подтемы курса", ""])
+    topics = chapter.get("topics", [])
+    if topics:
+        for topic in topics:
+            topic_title = str(topic.get("title", "Untitled"))
+            chunks = catalog_topic_source_links(topic)
+            chunks_suffix = f"; chunks={', '.join(chunks)}" if chunks else ""
+            lines.append(
+                f"### {topic_title}\n\n"
+                f"- Sources: {int(topic.get('source_count', 0))}\n"
+                f"- Mentions: {int(topic.get('count', 0))}{chunks_suffix}\n"
+            )
+    else:
+        lines.append("Пока нет подтем из расширенного списка.")
 
     return "\n".join(lines).rstrip() + "\n"
 

@@ -86,6 +86,34 @@ def seed_raw_data(raw_data: Path) -> None:
         raw_data / "catalog" / "summary.json",
         {"categories": 1, "articles": 2, "deferred_topics": 1, "merge_suggestions": 0},
     )
+    write_json(
+        raw_data / "course_plan" / "chapters.json",
+        [
+            {
+                "key": "software-engineering",
+                "title": "Software Engineering",
+                "article_count": 1,
+                "topic_count": 1,
+                "source_count": 3,
+                "articles": [
+                    {
+                        "title": "Spec Driven Development",
+                        "slug": "spec-driven-development",
+                        "source_count": 2,
+                        "count": 4,
+                    }
+                ],
+                "topics": [
+                    {
+                        "title": "Deferred Topic",
+                        "source_count": 1,
+                        "count": 1,
+                        "sources": [{"video_id": "video-c", "chunk_id": "0003"}],
+                    }
+                ],
+            }
+        ],
+    )
     (raw_data / "draft_articles").mkdir(parents=True)
     (raw_data / "draft_articles" / "spec-driven-development.md").write_text(
         "# Spec Driven Development\n\nСм. [[Daily / Standup]] и [[Unknown Topic]].\n\n## Источники\n- video-a/0001 00:00:00-00:10:00\n",
@@ -202,13 +230,29 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert (vault / "Index" / "Sources.md").exists()
     assert (vault / "Index" / "Catalog.md").exists()
     assert (vault / "Index" / "Catalog" / "software-engineering.md").exists()
+    assert (vault / "Course Materials" / "00 Справочные материалы по курсу.md").exists()
+    assert (vault / "Course Materials" / "software-engineering.md").exists()
     assert (vault / "Index" / "Deferred Topics.md").exists()
     assert "Unknown Topic" in (vault / "Index" / "Unlinked Mentions.md").read_text(encoding="utf-8")
     home = (vault / "00 Home.md").read_text(encoding="utf-8")
     catalog_index = (vault / "Index" / "Catalog.md").read_text(encoding="utf-8")
     catalog_category = (vault / "Index" / "Catalog" / "software-engineering.md").read_text(encoding="utf-8")
     assert "[[Index/Catalog|Catalog]]" in home
+    assert (
+        "[[Course Materials/00 Справочные материалы по курсу|Справочные материалы по курсу]]"
+        in home
+    )
     assert "[[Index/Catalog/software-engineering|Software Engineering]]" in catalog_index
+    course_index = (
+        vault / "Course Materials" / "00 Справочные материалы по курсу.md"
+    ).read_text(encoding="utf-8")
+    course_chapter = (vault / "Course Materials" / "software-engineering.md").read_text(
+        encoding="utf-8"
+    )
+    assert "[[Course Materials/software-engineering|Software Engineering]]" in course_index
+    assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in course_chapter
+    assert "Deferred Topic" in course_chapter
+    assert "[[Sources/Chunks/video-c/0003|video-c/0003]]" in course_chapter
     assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in catalog_category
     assert "[[Wiki/Deferred Topic" not in catalog_category
     assert "Deferred Topic" in catalog_category

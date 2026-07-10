@@ -21,6 +21,12 @@ from media_to_wiki_convertor.catalog import (
 )
 from media_to_wiki_convertor.chunks import chunk_transcript_record, count_existing_chunks
 from media_to_wiki_convertor.config import PipelineConfig, load_config
+from media_to_wiki_convertor.course_plan import (
+    build_course_plan as build_course_plan_payload,
+    count_course_plan_chapters,
+    read_catalog_categories as read_course_catalog_categories,
+    write_course_plan,
+)
 from media_to_wiki_convertor.draft_articles import (
     build_article_prompt,
     count_draft_articles,
@@ -77,6 +83,7 @@ def ensure_raw_layout(raw_data: Path) -> None:
         "topic_index",
         "article_plan",
         "catalog",
+        "course_plan",
         "draft_articles",
         "summaries/chunks",
         "summaries/videos",
@@ -102,6 +109,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"topic_pages:  {count_topic_index_pages(config.paths.raw_data)}")
     say(f"article_pages:{count_article_plan_pages(config.paths.raw_data)}")
     say(f"catalog_categories:{count_catalog_categories(config.paths.raw_data)}")
+    say(f"course_chapters:{count_course_plan_chapters(config.paths.raw_data)}")
     say(f"draft_articles:{count_draft_articles(config.paths.raw_data)}")
 
 
@@ -700,6 +708,30 @@ def build_catalog(config: PipelineConfig) -> int:
     return 0
 
 
+def build_course_plan(config: PipelineConfig) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    categories = read_course_catalog_categories(config.paths.raw_data)
+    if not categories:
+        say("No catalog categories found.")
+        say("Run `python3 -m media_to_wiki_convertor build-catalog` first.")
+        return 0
+
+    started_at = time.monotonic()
+    say(f"Course plan start: catalog_categories={len(categories)}")
+    plan = build_course_plan_payload(categories)
+    output_dir = write_course_plan(config.paths.raw_data, plan)
+    elapsed = format_elapsed(time.monotonic() - started_at)
+    say(
+        "Course plan complete "
+        f"in {elapsed}: "
+        f"chapters={plan['summary']['chapters']}, "
+        f"articles={plan['summary']['articles']}, "
+        f"topics={plan['summary']['topics']}"
+    )
+    say(f"Wrote course plan: {output_dir}")
+    return 0
+
+
 def draft_articles(
     config: PipelineConfig,
     model: str | None,
@@ -893,6 +925,10 @@ def pipeline_stages() -> dict[str, PipelineStage]:
             lambda config: build_article_plan(config, min_sources=1, max_pages=None),
         ),
         "build-catalog": PipelineStage("build-catalog", lambda config: build_catalog(config)),
+        "build-course-plan": PipelineStage(
+            "build-course-plan",
+            lambda config: build_course_plan(config),
+        ),
         "draft-articles": PipelineStage(
             "draft-articles",
             lambda config: draft_articles(config, None, None, False, False),
@@ -1039,6 +1075,10 @@ def build_parser() -> argparse.ArgumentParser:
         "build-catalog",
         help="Build deterministic high-level catalog categories and merge suggestions.",
     )
+    subparsers.add_parser(
+        "build-course-plan",
+        help="Build deterministic course materials chapters from catalog categories.",
+    )
     draft_articles_parser = subparsers.add_parser(
         "draft-articles",
         help="Draft Markdown wiki articles from article source packs with the configured LLM provider.",
@@ -1141,6 +1181,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_article_plan(config, args.min_sources, args.max_pages)
     if args.command == "build-catalog":
         return build_catalog(config)
+    if args.command == "build-course-plan":
+        return build_course_plan(config)
     if args.command == "draft-articles":
         return draft_articles(config, args.model, args.limit, args.force, args.dry_run)
     if args.command == "build-vault":

@@ -153,3 +153,9 @@ def test_build_catalog_parser_accepts_command() -> None:
     args = build_parser().parse_args(["build-catalog"])
 
     assert args.command == "build-catalog"
+
+
+def test_build_course_plan_parser_accepts_command() -> None:
+    args = build_parser().parse_args(["build-course-plan"])
+
+    assert args.command == "build-course-plan"
