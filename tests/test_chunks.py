@@ -107,12 +107,49 @@ def test_chunk_transcript_record_writes_json_and_markdown(tmp_path: Path) -> Non
     first_md = result.output_dir / "0001.md"
     assert '"video_id": "abc123"' in first_json.read_text(encoding="utf-8")
     assert '"overlap_seconds": 60' in first_json.read_text(encoding="utf-8")
+    assert '"chunking_mode": "time"' in first_json.read_text(encoding="utf-8")
     markdown = first_md.read_text(encoding="utf-8")
     assert "# Lesson One - chunk 0001" in markdown
     assert "source_video: abc123" in markdown
     assert "start: 00:00:00" in markdown
     assert "end: 00:03:00" in markdown
     assert "Первый\nВторой\nТретий" in markdown
+
+
+def test_chunk_transcript_record_chunks_untimed_transcript_by_text_with_overlap(tmp_path: Path) -> None:
+    transcript_path = tmp_path / "transcripts" / "abc123.json"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        """
+{
+  "timing": "untimed",
+  "segments": [
+    {"start": null, "end": null, "text": "alpha beta gamma delta"},
+    {"start": null, "end": null, "text": "epsilon zeta eta theta"}
+  ]
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = chunk_transcript_record(
+        make_record(),
+        tmp_path,
+        chunk_seconds=3,
+        overlap_seconds=1,
+    )
+
+    assert result.created == 4
+    first_payload = (result.output_dir / "0001.json").read_text(encoding="utf-8")
+    second_payload = (result.output_dir / "0002.json").read_text(encoding="utf-8")
+    assert '"chunking_mode": "text"' in first_payload
+    assert '"start": null' in first_payload
+    assert '"end_hms": ""' in first_payload
+    assert '"text": "alpha beta gamma"' in first_payload
+    assert '"text": "gamma delta epsilon"' in second_payload
+    markdown = (result.output_dir / "0001.md").read_text(encoding="utf-8")
+    assert "start: unknown" in markdown
+    assert "end: unknown" in markdown
 
 
 def test_chunk_transcript_record_skips_existing_chunks_with_same_settings(tmp_path: Path) -> None:

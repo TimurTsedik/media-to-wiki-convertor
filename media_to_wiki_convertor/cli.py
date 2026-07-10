@@ -43,6 +43,7 @@ from media_to_wiki_convertor.transcription import (
     append_transcription_log,
     count_existing_transcripts,
     format_elapsed,
+    import_transcript as import_transcript_file,
     transcribe_record,
 )
 from media_to_wiki_convertor.topic_index import (
@@ -127,6 +128,34 @@ def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | 
     say(f"Imported {len(records)} video file(s).")
     say(f"Wrote manifest: {output_path}")
     return len(records)
+
+
+def import_transcript(config: PipelineConfig, video_id: str, file_path: Path, force: bool) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    records = read_manifest(config.paths.raw_data)
+    record = next((item for item in records if item.video_id == video_id), None)
+    if record is None:
+        say(f"Video id not found in manifest: {video_id}")
+        say("Run `python3 -m media_to_wiki_convertor discover` or `import-list` first.")
+        return 1
+
+    try:
+        result = import_transcript_file(
+            record,
+            config.paths.raw_data,
+            file_path,
+            language=config.transcription.language,
+            force=force,
+        )
+    except Exception as exc:
+        say(f"Transcript import failed for {video_id}: {exc}")
+        return 1
+
+    if result.skipped:
+        say(f"Transcript import skipped for {video_id}: {result.paths.json_path}")
+    else:
+        say(f"Transcript imported for {video_id}: {result.paths.json_path}")
+    return 0
 
 
 def planned_stage(name: str) -> None:
@@ -658,6 +687,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Base directory for relative paths. Defaults to configured video_source.",
     )
+    import_transcript_parser = subparsers.add_parser(
+        "import-transcript",
+        help="Import an existing JSON or TXT transcript into raw-data/transcripts.",
+    )
+    import_transcript_parser.add_argument("--video-id", required=True)
+    import_transcript_parser.add_argument(
+        "--file",
+        type=Path,
+        required=True,
+        help="Transcript file to import. Supports .json and .txt.",
+    )
+    import_transcript_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing complete transcript set.",
+    )
     subparsers.add_parser("extract-audio", help="Extract mono 16 kHz WAV files with ffmpeg.")
     subparsers.add_parser("validate-audio", help="Validate extracted WAV files with ffprobe.")
     subparsers.add_parser("transcribe", help="Transcribe WAV files with local mlx-whisper.")
@@ -796,6 +841,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "import-list":
         import_video_list(config, args.file, args.base)
         return 0
+    if args.command == "import-transcript":
+        return import_transcript(config, args.video_id, args.file, args.force)
     if args.command == "extract-audio":
         extract_audio(config)
         return 0

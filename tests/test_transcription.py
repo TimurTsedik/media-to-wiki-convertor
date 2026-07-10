@@ -7,9 +7,11 @@ from media_to_wiki_convertor.transcription import (
     count_existing_transcripts,
     format_elapsed,
     format_srt,
+    import_transcript,
     load_pcm16_wav,
     transcribe_records,
     transcribe_record,
+    transcript_complete,
     transcript_paths,
 )
 
@@ -180,3 +182,79 @@ def test_transcribe_records_continues_after_one_failure(tmp_path: Path) -> None:
     assert result.failed == 1
     assert result.failures == [("fail", "temporary timeout")]
     assert transcript_paths(tmp_path, "ok").txt_path.read_text(encoding="utf-8") == "done ok\n"
+
+
+def test_import_json_transcript_writes_complete_transcript_set(tmp_path: Path) -> None:
+    source = tmp_path / "input.json"
+    source.write_text(
+        """
+{
+  "segments": [
+    {"start": 0.0, "end": 1.5, "text": " Первый "},
+    {"start": 1.5, "end": 3.0, "text": "Второй"}
+  ]
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = import_transcript(
+        make_record(),
+        tmp_path / "raw-data",
+        source,
+        language="ru",
+        force=False,
+    )
+
+    assert result.skipped is False
+    assert result.paths.txt_path.read_text(encoding="utf-8") == "Первый\nВторой\n"
+    assert "00:00:01,500" in result.paths.srt_path.read_text(encoding="utf-8")
+    payload = result.paths.json_path.read_text(encoding="utf-8")
+    assert '"video_id": "abc123"' in payload
+    assert '"timing": "timed"' in payload
+
+
+def test_import_txt_transcript_writes_complete_untimed_transcript_set(tmp_path: Path) -> None:
+    source = tmp_path / "input.txt"
+    source.write_text("Первый абзац.\n\nВторой абзац.\n", encoding="utf-8")
+
+    result = import_transcript(
+        make_record(),
+        tmp_path / "raw-data",
+        source,
+        language="ru",
+        force=False,
+    )
+
+    assert result.skipped is False
+    assert result.paths.txt_path.read_text(encoding="utf-8") == "Первый абзац.\nВторой абзац.\n"
+    assert result.paths.srt_path.read_text(encoding="utf-8") == ""
+    payload = result.paths.json_path.read_text(encoding="utf-8")
+    assert '"timing": "untimed"' in payload
+    assert '"start": null' in payload
+    assert '"end": null' in payload
+    assert transcript_complete(result.paths) is True
+    assert count_existing_transcripts(tmp_path / "raw-data") == 1
+
+
+def test_import_txt_transcript_skips_existing_untimed_set(tmp_path: Path) -> None:
+    source = tmp_path / "input.txt"
+    source.write_text("Первый абзац.\n", encoding="utf-8")
+    raw_data = tmp_path / "raw-data"
+
+    import_transcript(
+        make_record(),
+        raw_data,
+        source,
+        language="ru",
+        force=False,
+    )
+    second = import_transcript(
+        make_record(),
+        raw_data,
+        source,
+        language="ru",
+        force=False,
+    )
+
+    assert second.skipped is True

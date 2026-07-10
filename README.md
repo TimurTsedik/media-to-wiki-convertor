@@ -15,6 +15,7 @@ It does the boring heavy lifting:
 - discovers media files
 - extracts audio
 - transcribes locally with Whisper on Apple Silicon
+- imports existing JSON or TXT transcripts
 - splits transcripts into overlapping chunks
 - extracts structured knowledge with OpenAI
 - drafts wiki articles
@@ -43,7 +44,7 @@ Every stage writes files to disk, so the pipeline is resumable. If a run stops h
 
 - Python 3.11+
 - `ffmpeg`
-- macOS Apple Silicon for the default `mlx-whisper` transcription engine
+- macOS Apple Silicon for the default `mlx-whisper` transcription engine, unless you import transcripts
 - OpenAI API key for knowledge extraction and article drafting
 
 Install `ffmpeg` on macOS:
@@ -120,6 +121,23 @@ Run the pipeline:
 media-to-wiki-convertor run --yes
 ```
 
+On Windows, or on any machine where `mlx-whisper` is not available, use an existing transcript instead of the local transcription stage:
+
+```bash
+media-to-wiki-convertor discover
+media-to-wiki-convertor import-transcript --video-id VIDEO_ID --file transcript.txt
+media-to-wiki-convertor chunk-transcripts
+media-to-wiki-convertor extract-knowledge --sample-per-video 1
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan
+media-to-wiki-convertor draft-articles
+media-to-wiki-convertor build-vault
+```
+
+`import-transcript` supports the internal JSON transcript format, Whisper-like JSON with top-level `segments`, and plain `.txt`. Plain text imports are marked as untimed, so chunk/source metadata will not pretend to have exact timestamps.
+
+For untimed `.txt` imports, `chunk-transcripts` uses the same numeric chunk settings as word windows: `--chunk-minutes 600 --overlap-seconds 120` means 600 words with 120 words of overlap. Timestamped JSON transcripts still use time windows.
+
 ## Stage Commands
 
 You can also run stages one by one.
@@ -128,6 +146,7 @@ You can also run stages one by one.
 | --- | --- |
 | `discover` | Scans the video folder and builds a manifest. |
 | `import-list` | Builds a manifest from a text file of media paths. |
+| `import-transcript` | Imports an existing JSON or TXT transcript for a manifest video. |
 | `extract-audio` | Extracts mono 16 kHz WAV audio with `ffmpeg`. |
 | `validate-audio` | Checks extracted audio files before transcription. |
 | `transcribe` | Transcribes audio locally with `mlx-whisper`. |
@@ -211,3 +230,4 @@ Expected result:
 ## Notes
 
 The default transcription engine is optimized for Apple Silicon via `mlx-whisper`. Other engines can be added later behind the same file-based pipeline.
+Users who already have transcripts can skip `extract-audio` and `transcribe` by importing transcript files directly.

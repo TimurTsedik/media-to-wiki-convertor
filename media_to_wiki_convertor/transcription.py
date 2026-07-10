@@ -35,6 +35,14 @@ class TranscriptionResult:
 
 
 @dataclass(frozen=True)
+class ImportTranscriptResult:
+    video_id: str
+    source_path: Path
+    paths: TranscriptPaths
+    skipped: bool
+
+
+@dataclass(frozen=True)
 class TranscriptionBatchResult:
     created: int
     skipped: int
@@ -55,11 +63,18 @@ def transcript_paths(raw_data: Path, video_id: str) -> TranscriptPaths:
 
 
 def transcript_complete(paths: TranscriptPaths) -> bool:
-    return (
-        is_non_empty_file(paths.json_path)
-        and is_non_empty_file(paths.txt_path)
-        and is_non_empty_file(paths.srt_path)
-    )
+    if not is_non_empty_file(paths.json_path) or not is_non_empty_file(paths.txt_path):
+        return False
+    if is_non_empty_file(paths.srt_path):
+        return True
+    if not paths.srt_path.exists():
+        return False
+
+    try:
+        payload = json.loads(paths.json_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return payload.get("timing") == "untimed"
 
 
 def count_existing_transcripts(raw_data: Path) -> int:
@@ -103,6 +118,110 @@ def format_srt(segments: list[Segment]) -> str:
             )
         )
     return "\n\n".join(blocks) + ("\n" if blocks else "")
+
+
+def parse_imported_transcript(source_path: Path) -> tuple[list[dict[str, float | str | None]], str]:
+    suffix = source_path.suffix.lower()
+    if suffix == ".txt":
+        segments = [
+            {"start": None, "end": None, "text": line.strip()}
+            for line in source_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        return segments, "untimed"
+
+    if suffix != ".json":
+        raise ValueError(f"Unsupported transcript format: {source_path.suffix}")
+
+    payload = json.loads(source_path.read_text(encoding="utf-8"))
+    segments: list[dict[str, float | str | None]] = []
+    timing = "timed"
+    for raw_segment in payload.get("segments", []):
+        text = str(raw_segment.get("text", "")).strip()
+        if not text:
+            continue
+
+        start = raw_segment.get("start")
+        end = raw_segment.get("end")
+        if start is None or end is None:
+            timing = "untimed"
+            segments.append({"start": None, "end": None, "text": text})
+        else:
+            segments.append({"start": float(start), "end": float(end), "text": text})
+
+    return segments, str(payload.get("timing", timing))
+
+
+def write_imported_transcript_files(
+    record: VideoRecord,
+    paths: TranscriptPaths,
+    segments: list[dict[str, float | str | None]],
+    language: str,
+    source_path: Path,
+    timing: str,
+) -> None:
+    paths.json_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "video_id": record.video_id,
+        "title": record.title,
+        "source_path": record.path,
+        "language": language,
+        "model": "imported",
+        "import_source_path": str(source_path),
+        "timing": timing,
+        "segments": segments,
+    }
+    paths.json_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    paths.txt_path.write_text(
+        "".join(f"{str(segment['text']).strip()}\n" for segment in segments if str(segment["text"]).strip()),
+        encoding="utf-8",
+    )
+
+    if timing == "timed":
+        timed_segments = [
+            Segment(start=float(segment["start"]), end=float(segment["end"]), text=str(segment["text"]))
+            for segment in segments
+            if segment["start"] is not None and segment["end"] is not None
+        ]
+        paths.srt_path.write_text(format_srt(timed_segments), encoding="utf-8")
+    else:
+        paths.srt_path.write_text("", encoding="utf-8")
+
+
+def import_transcript(
+    record: VideoRecord,
+    raw_data: Path,
+    source_path: Path,
+    language: str,
+    force: bool = False,
+) -> ImportTranscriptResult:
+    paths = transcript_paths(raw_data, record.video_id)
+    if transcript_complete(paths) and not force:
+        return ImportTranscriptResult(
+            video_id=record.video_id,
+            source_path=source_path,
+            paths=paths,
+            skipped=True,
+        )
+
+    segments, timing = parse_imported_transcript(source_path)
+    write_imported_transcript_files(
+        record,
+        paths,
+        segments,
+        language=language,
+        source_path=source_path,
+        timing=timing,
+    )
+    return ImportTranscriptResult(
+        video_id=record.video_id,
+        source_path=source_path,
+        paths=paths,
+        skipped=False,
+    )
 
 
 def default_mlx_transcriber(audio_path: Path, language: str, model: str) -> list[Segment]:

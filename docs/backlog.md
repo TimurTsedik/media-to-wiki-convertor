@@ -55,7 +55,7 @@ Verification:
 
 ### MTW-002: Import Existing Transcripts
 
-Status: Ready
+Status: Done
 
 Contract:
 
@@ -86,9 +86,17 @@ Audit:
 - Dependency: chunker currently assumes numeric segment timestamps.
 - Verification: parser tests for JSON and TXT; CLI smoke test.
 
+Verification:
+
+- Worker implemented import command and transcript parsers.
+- Reviewer fixed completion semantics for untimed transcripts with empty `.srt`.
+- `PYTHONPATH=... /tmp/media-wiki-ci-venv/bin/python -m pytest tests/test_transcription.py tests/test_chunks.py tests/test_cli.py -q -p no:cacheprovider` -> 20 passed.
+- `PYTHONPATH=... /tmp/media-wiki-ci-venv/bin/python -m pytest -q -p no:cacheprovider` -> 79 passed.
+- `RUFF_CACHE_DIR=/tmp/media-wiki-ruff-cache /tmp/media-wiki-ci-venv/bin/python -m ruff check media_to_wiki_convertor tests` -> passed.
+
 ### MTW-003: Chunk Transcripts Without Timestamps
 
-Status: Ready
+Status: Done
 
 Contract:
 
@@ -110,6 +118,13 @@ Audit:
 - Risk: article source references lose timestamp precision.
 - Dependency: import-transcript TXT path.
 - Verification: unit tests for text chunking and downstream chunk JSON shape.
+
+Verification:
+
+- Untimed transcripts are chunked with `chunking_mode = "text"`.
+- Untimed chunks use unknown/empty timestamps instead of fabricated time ranges.
+- README documents that untimed text chunks reuse chunk settings as word windows in this MVP.
+- Same verification commands as MTW-002.
 
 ### MTW-004: Persist Stage Timing And Run Events
 
@@ -181,7 +196,7 @@ Audit:
 
 ## Now
 
-- Start MTW-002.
+- Start MTW-004.
 
 ## Next
 
