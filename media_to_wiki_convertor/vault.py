@@ -13,7 +13,22 @@ from media_to_wiki_convertor.labels import heading_translation_map, label_aliase
 from media_to_wiki_convertor.manifest import VideoRecord, read_manifest
 
 
-MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts", "Course Materials")
+START_HERE_NOTE = "00 Start Here.md"
+COURSE_ROOT = "01 Course Materials"
+ARTICLE_ROOT = "02 Reference Wiki"
+INDEX_ROOT = "03 Indexes"
+SOURCE_ROOT = "04 Sources"
+TRANSCRIPT_ROOT = "05 Transcripts"
+SYSTEM_ROOT = "99 System"
+
+MANAGED_DIRS = (
+    COURSE_ROOT,
+    ARTICLE_ROOT,
+    INDEX_ROOT,
+    SOURCE_ROOT,
+    TRANSCRIPT_ROOT,
+    SYSTEM_ROOT,
+)
 LINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 BACKTICK_SOURCE_REF_PATTERN = re.compile(r"`([^`\n]+)`")
 MARKDOWN_SOURCE_LINK_PATTERN = re.compile(r"\[([^\]\n]+)\]\(([^)\n]+)\)")
@@ -112,7 +127,7 @@ def note_path_for_title(title: str) -> Path:
     parts = [part for part in parts if part]
     if not parts:
         parts = ["Untitled"]
-    return Path("Wiki", *parts[:-1], f"{parts[-1]}.md")
+    return Path(ARTICLE_ROOT, *parts[:-1], f"{parts[-1]}.md")
 
 
 def note_target_for_title(title: str) -> str:

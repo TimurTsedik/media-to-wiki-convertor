@@ -2,12 +2,17 @@ import json
 from pathlib import Path
 
 from media_to_wiki_convertor.vault import (
+    ARTICLE_ROOT,
     build_obsidian_vault,
     count_vault_articles,
+    COURSE_ROOT,
     file_link,
+    INDEX_ROOT,
     note_path_for_title,
     rewrite_course_material_map_links,
     rewrite_course_material_links,
+    SOURCE_ROOT,
+    TRANSCRIPT_ROOT,
 )
 
 
@@ -197,9 +202,21 @@ def seed_raw_data(raw_data: Path) -> None:
     (transcript_dir / "video-c.txt").write_text("transcript c", encoding="utf-8")
 
 
+def test_course_first_vault_roots_are_numbered_for_obsidian_scanability() -> None:
+    assert COURSE_ROOT == "01 Course Materials"
+    assert ARTICLE_ROOT == "02 Reference Wiki"
+    assert INDEX_ROOT == "03 Indexes"
+    assert SOURCE_ROOT == "04 Sources"
+    assert TRANSCRIPT_ROOT == "05 Transcripts"
+
+
 def test_note_path_for_title_splits_slash_titles_into_nested_notes() -> None:
-    assert note_path_for_title("Spec Driven Development") == Path("Wiki") / "Spec Driven Development.md"
-    assert note_path_for_title("Daily / Standup") == Path("Wiki") / "Daily" / "Standup.md"
+    assert note_path_for_title("Spec Driven Development") == (
+        Path("02 Reference Wiki") / "Spec Driven Development.md"
+    )
+    assert note_path_for_title("Daily / Standup") == (
+        Path("02 Reference Wiki") / "Daily" / "Standup.md"
+    )
 
 
 def test_file_link_escapes_square_brackets_in_label() -> None:
