@@ -1,7 +1,13 @@
 import json
 from pathlib import Path
 
-from media_to_wiki_convertor.vault import build_obsidian_vault, count_vault_articles, file_link, note_path_for_title
+from media_to_wiki_convertor.vault import (
+    build_obsidian_vault,
+    count_vault_articles,
+    file_link,
+    note_path_for_title,
+    rewrite_course_material_links,
+)
 
 
 def write_json(path: Path, payload: object) -> None:
@@ -199,6 +205,28 @@ def test_file_link_escapes_square_brackets_in_label() -> None:
     link = file_link(Path("/tmp/video.mp4"), "[Dmc-1] Recording")
 
     assert link.startswith(r"[\[Dmc-1\] Recording](file://")
+
+
+def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links() -> None:
+    markdown = (
+        "# AWS\n\n"
+        "Источники: [f323d805b520:0011], source:307869628eba#0004, "
+        "[missingvideo:0001], source:missingvideo#0002.\n"
+        "См. [[AWS Bedrock]] и [[Sources/Chunks/f323d805b520/0011|готовая ссылка]].\n"
+    )
+
+    rewritten = rewrite_course_material_links(
+        markdown,
+        {"AWS Bedrock": "Wiki/AWS Bedrock"},
+        source_targets={("f323d805b520", "0011"), ("307869628eba", "0004")},
+    )
+
+    assert "[[Sources/Chunks/f323d805b520/0011|f323d805b520/0011]]" in rewritten
+    assert "[[Sources/Chunks/307869628eba/0004|307869628eba/0004]]" in rewritten
+    assert "[missingvideo:0001]" in rewritten
+    assert "source:missingvideo#0002" in rewritten
+    assert "[[Wiki/AWS Bedrock|AWS Bedrock]]" in rewritten
+    assert "[[Sources/Chunks/f323d805b520/0011|готовая ссылка]]" in rewritten
 
 
 def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path) -> None:

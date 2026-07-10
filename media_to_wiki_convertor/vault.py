@@ -14,6 +14,8 @@ from media_to_wiki_convertor.manifest import VideoRecord, read_manifest
 
 MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts", "Course Materials")
 LINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
+BRACKETED_SOURCE_REF_PATTERN = re.compile(r"\[([A-Za-z0-9_-]+):([A-Za-z0-9_-]+)\]")
+PREFIXED_SOURCE_REF_PATTERN = re.compile(r"\bsource:([A-Za-z0-9_-]+)[#/:]([A-Za-z0-9_-]+)")
 INVALID_FILENAME_CHARS = set(':\\?#^[]|')
 
 
@@ -392,6 +394,7 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
             markdown = rewrite_course_material_links(
                 draft_path.read_text(encoding="utf-8"),
                 {title: note_target_for_title(title) for title in known_titles},
+                source_targets=course_chapter_source_targets(chapter),
             )
             appendix = render_course_chapter_reference_appendix(chapter)
             if appendix:
@@ -473,8 +476,13 @@ def render_course_chapter_reference_appendix(chapter: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def rewrite_course_material_links(markdown: str, link_targets: dict[str, str]) -> str:
+def rewrite_course_material_links(
+    markdown: str,
+    link_targets: dict[str, str],
+    source_targets: set[tuple[str, str]] | None = None,
+) -> str:
     known_vault_prefixes = ("Wiki/", "Sources/", "Course Materials/", "Index/", "90 Transcripts/")
+    source_targets = source_targets or set()
 
     def replace(match: re.Match[str]) -> str:
         target = match.group(1).strip()
@@ -491,7 +499,47 @@ def rewrite_course_material_links(markdown: str, link_targets: dict[str, str]) -
         label = alias if alias is not None else base_target
         return f"[[{rewritten_target}|{label}]]"
 
-    return LINK_PATTERN.sub(replace, markdown)
+    rewritten = LINK_PATTERN.sub(replace, markdown)
+    rewritten = rewrite_course_material_source_refs(rewritten, source_targets)
+    return rewritten
+
+
+def rewrite_course_material_source_refs(
+    markdown: str,
+    source_targets: set[tuple[str, str]],
+) -> str:
+    def source_link(video_id: str, chunk_id: str) -> str | None:
+        if (video_id, chunk_id) not in source_targets:
+            return None
+        return f"[[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]"
+
+    def replace_bracketed(match: re.Match[str]) -> str:
+        video_id = match.group(1)
+        chunk_id = match.group(2)
+        return source_link(video_id, chunk_id) or match.group(0)
+
+    def replace_prefixed(match: re.Match[str]) -> str:
+        video_id = match.group(1)
+        chunk_id = match.group(2)
+        return source_link(video_id, chunk_id) or match.group(0)
+
+    rewritten = BRACKETED_SOURCE_REF_PATTERN.sub(replace_bracketed, markdown)
+    return PREFIXED_SOURCE_REF_PATTERN.sub(replace_prefixed, rewritten)
+
+
+def course_chapter_source_targets(chapter: dict[str, Any]) -> set[tuple[str, str]]:
+    targets: set[tuple[str, str]] = set()
+    for topic in chapter.get("topics", []):
+        if not isinstance(topic, dict):
+            continue
+        for source in topic.get("sources", []):
+            if not isinstance(source, dict):
+                continue
+            video_id = str(source.get("video_id", "")).strip()
+            chunk_id = str(source.get("chunk_id", "")).strip()
+            if video_id and chunk_id:
+                targets.add((video_id, chunk_id))
+    return targets
 
 
 def catalog_topic_source_links(topic: dict[str, Any]) -> list[str]:
