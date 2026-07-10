@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 - 2026-07-10
+
+Bugfix release.
+
+- Keep single-source topics in the article plan by default, so rare but useful topics are sent to article drafting instead of being deferred.
+- Keep stricter filtering available with `build-article-plan --min-sources 2`.
+
 ## 1.0.0 - 2026-07-10
 
 Initial stable CLI release.
