@@ -274,6 +274,155 @@ media-to-wiki-convertor draft-course-materials --limit 3
 media-to-wiki-convertor build-vault
 ```
 
+## Cost And Granularity Tuning
+
+The expensive part is not Obsidian generation. The expensive part is sending transcript-derived text to an LLM.
+
+The main cost drivers are:
+
+- number of transcript chunks processed by `extract-knowledge`
+- chunk size and overlap
+- number of article drafts produced by `draft-articles`
+- number and source budget of course material drafts produced by `draft-course-materials`
+- model/provider choice in `[llm]`
+
+### Cheap Trial Run
+
+Use this when validating paths, language settings, prompts, and provider credentials:
+
+```bash
+media-to-wiki-convertor chunk-transcripts --chunk-minutes 10 --overlap-seconds 120
+media-to-wiki-convertor extract-knowledge --sample-per-video 1
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan --max-pages 5
+media-to-wiki-convertor build-catalog
+media-to-wiki-convertor build-course-plan
+media-to-wiki-convertor draft-articles --limit 2
+media-to-wiki-convertor draft-course-materials --limit 2 --max-topics 4 --max-chunk-chars 250
+media-to-wiki-convertor build-vault
+```
+
+This samples only a small part of the corpus and drafts only a few pages. It is good for checking whether the output shape is useful before paying for the whole run.
+
+### Balanced Run
+
+This is the default shape for most training/course material:
+
+```bash
+media-to-wiki-convertor chunk-transcripts --chunk-minutes 10 --overlap-seconds 120
+media-to-wiki-convertor extract-knowledge
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan --min-sources 1
+media-to-wiki-convertor build-catalog
+media-to-wiki-convertor build-course-plan
+media-to-wiki-convertor draft-articles
+media-to-wiki-convertor draft-course-materials
+media-to-wiki-convertor build-vault
+```
+
+`--min-sources 1` keeps rare but potentially useful topics as standalone articles. Use it when recall matters more than having a small, polished wiki.
+
+### More Expensive / More Selective Run
+
+Use this when you want fewer standalone articles, more evidence per article, and richer course chapters:
+
+```bash
+media-to-wiki-convertor chunk-transcripts --chunk-minutes 8 --overlap-seconds 180
+media-to-wiki-convertor extract-knowledge
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan --min-sources 2 --max-pages 80
+media-to-wiki-convertor build-catalog
+media-to-wiki-convertor build-course-plan
+media-to-wiki-convertor draft-articles
+media-to-wiki-convertor draft-course-materials --max-topics 16 --max-chunk-chars 700
+media-to-wiki-convertor build-vault
+```
+
+Smaller chunks plus larger overlap usually improve source precision and topic recovery, but they create more chunks and therefore more `extract-knowledge` calls. Larger `--max-topics` and `--max-chunk-chars` give the course-materials LLM more context per chapter, but increase prompt size and cost.
+
+### Cheaper / Coarser Run
+
+Use this when you mainly need search and broad course chapters:
+
+```bash
+media-to-wiki-convertor chunk-transcripts --chunk-minutes 15 --overlap-seconds 60
+media-to-wiki-convertor extract-knowledge
+media-to-wiki-convertor build-topic-index
+media-to-wiki-convertor build-article-plan --min-sources 2 --max-pages 40
+media-to-wiki-convertor build-catalog
+media-to-wiki-convertor build-course-plan
+media-to-wiki-convertor draft-articles
+media-to-wiki-convertor draft-course-materials --max-topics 6 --max-chunk-chars 250
+media-to-wiki-convertor build-vault
+```
+
+This reduces standalone article count and keeps course prompts compact. The tradeoff is lower source precision and a higher chance that small but useful topics stay catalog-only.
+
+### Article Granularity
+
+Article granularity is controlled mostly by `build-article-plan`:
+
+- `build-topic-index` reads extracted knowledge and builds candidate pages only from `wiki_candidates`.
+- `build-article-plan` canonicalizes similar candidate titles into article groups.
+- `--min-sources` decides how many distinct source chunks a candidate needs before it becomes a standalone article.
+- `--max-pages` keeps only the top N article groups by deterministic score.
+
+The current deterministic score is:
+
+```text
+source_count * 100 + mention_count * 10 + alias_count
+```
+
+That means a topic mentioned across many chunks outranks a topic that appears many times in only one chunk.
+
+Practical settings:
+
+- `--min-sources 1`: more articles, more long-tail topics, more cleanup later.
+- `--min-sources 2`: fewer articles, better evidence, more material goes to `deferred`.
+- `--max-pages 40`: compact wiki.
+- `--max-pages 100`: broader wiki.
+- no `--max-pages`: keep every article candidate that passes `--min-sources`.
+
+### What Deferred Means
+
+`deferred` does not mean deleted.
+
+A topic goes to `raw-data/article_plan/deferred.json` when it was a wiki candidate but did not become a standalone article because:
+
+- it had fewer source chunks than `--min-sources`
+- or it ranked below `--max-pages`
+
+Deferred topics are still used in later stages:
+
+- `build-catalog` groups them into catalog categories.
+- `build-catalog` writes merge suggestions to `raw-data/catalog/merge_suggestions.json`.
+- `build-course-plan` turns catalog categories into Course Materials chapters.
+- `draft-course-materials` can include deferred topics and their chunk text in chapter drafts.
+- `build-vault` writes `Index/Deferred Topics.md`, catalog pages, source chunk links, and Course Materials appendices.
+
+Deferred topics are not used for:
+
+- standalone files under `Wiki/`
+- `draft-articles`
+- article source packs under `raw-data/article_plan/source_packs/`
+
+This is intentional. Standalone wiki articles should be reasonably evidence-backed; deferred topics remain findable through catalog pages, Course Materials, source chunks, and the Deferred Topics index.
+
+Some extracted items may not enter `deferred` at all. `topics`, `terms`, `practices`, `mistakes`, and `questions` are preserved inside extracted knowledge JSON and topic indexes, but only `wiki_candidates` are considered for standalone article planning.
+
+### Merge Suggestions
+
+`build-catalog` also writes `raw-data/catalog/merge_suggestions.json`.
+
+Typical actions are:
+
+- `merge_as_alias`: deferred topic title is effectively another name for an existing article.
+- `merge_as_section`: deferred topic probably belongs as a section inside an existing article.
+- `catalog_only`: keep it in catalog/course materials, but do not create an article yet.
+- `needs_review`: usually uncategorized or weakly classified; inspect manually.
+
+These suggestions are deterministic hints. The pipeline does not rewrite article plans automatically from them yet.
+
 ## Cost And Privacy
 
 Transcription is local. Your media and audio do not need to leave your machine for the transcription stage.
