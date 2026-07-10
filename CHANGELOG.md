@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.3 - 2026-07-10
+
 - Respect the global `--config` path for the `config` command.
 - Use `[chunking]` defaults when `chunk-transcripts` is run without explicit chunk arguments.
 - Add `healthcheck` to validate resumable chunk and knowledge artifacts before continuing a run.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "media-to-wiki-convertor"
-version = "1.0.2"
+version = "1.0.3"
 description = "Local CLI for turning video folders into Obsidian knowledge bases."
 requires-python = ">=3.11"
 dependencies = ["numpy"]
