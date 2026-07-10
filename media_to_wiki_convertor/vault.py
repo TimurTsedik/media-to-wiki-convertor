@@ -366,7 +366,7 @@ def write_home(
     ]
     for page in pages[:15]:
         lines.append(f"- {article_link(page)}")
-    write_text(vault / "00 Home.md", "\n".join(lines) + "\n")
+    write_text(vault / START_HERE_NOTE, "\n".join(lines) + "\n")
 
 
 def render_articles_index(pages: list[dict[str, Any]]) -> str:

@@ -9,9 +9,12 @@ from media_to_wiki_convertor.vault import (
     file_link,
     INDEX_ROOT,
     note_path_for_title,
+    MANAGED_DIRS,
     rewrite_course_material_map_links,
     rewrite_course_material_links,
     SOURCE_ROOT,
+    START_HERE_NOTE,
+    SYSTEM_ROOT,
     TRANSCRIPT_ROOT,
 )
 
@@ -210,11 +213,21 @@ def seed_raw_data(raw_data: Path) -> None:
 
 
 def test_course_first_vault_roots_are_numbered_for_obsidian_scanability() -> None:
+    assert START_HERE_NOTE == "00 Start Here.md"
     assert COURSE_ROOT == "01 Course Materials"
     assert ARTICLE_ROOT == "02 Reference Wiki"
     assert INDEX_ROOT == "03 Indexes"
     assert SOURCE_ROOT == "04 Sources"
     assert TRANSCRIPT_ROOT == "05 Transcripts"
+    assert SYSTEM_ROOT == "99 System"
+    assert MANAGED_DIRS == (
+        COURSE_ROOT,
+        ARTICLE_ROOT,
+        INDEX_ROOT,
+        SOURCE_ROOT,
+        TRANSCRIPT_ROOT,
+        SYSTEM_ROOT,
+    )
 
 
 def test_note_path_for_title_splits_slash_titles_into_nested_notes() -> None:
@@ -413,7 +426,7 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert "[[Unknown Topic]]" not in spec
     assert "Unknown Topic" in spec
     assert f"[[{ARTICLE_PREFIX}Spec Driven Development|SDD]]" in daily
-    assert (vault / "00 Home.md").exists()
+    assert (vault / START_HERE_NOTE).exists()
     assert (vault / INDEX_ROOT / "Articles.md").exists()
     assert (vault / INDEX_ROOT / "Domains.md").exists()
     assert (vault / INDEX_ROOT / "Sources.md").exists()
@@ -425,7 +438,7 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert "Unknown Topic" in (vault / INDEX_ROOT / "Unlinked Mentions.md").read_text(
         encoding="utf-8"
     )
-    home = (vault / "00 Home.md").read_text(encoding="utf-8")
+    home = (vault / START_HERE_NOTE).read_text(encoding="utf-8")
     catalog_index = (vault / INDEX_ROOT / "Catalog.md").read_text(encoding="utf-8")
     catalog_category = (vault / INDEX_ROOT / "Catalog" / "software-engineering.md").read_text(
         encoding="utf-8"
@@ -490,7 +503,7 @@ def test_build_obsidian_vault_localizes_course_materials_to_english(tmp_path: Pa
     course_chapter = (vault / COURSE_ROOT / "software-engineering.md").read_text(
         encoding="utf-8"
     )
-    home = (vault / "00 Home.md").read_text(encoding="utf-8")
+    home = (vault / START_HERE_NOTE).read_text(encoding="utf-8")
 
     assert "# Course Reference Materials" in course_index
     assert f"[[{COURSE_PREFIX}00 Course Reference Materials|Course Reference Materials]]" in home
@@ -559,6 +572,6 @@ def test_build_obsidian_vault_omits_catalog_link_when_catalog_is_missing(tmp_pat
 
     build_obsidian_vault(raw_data, vault)
 
-    home = (vault / "00 Home.md").read_text(encoding="utf-8")
+    home = (vault / START_HERE_NOTE).read_text(encoding="utf-8")
     assert f"[[{INDEX_PREFIX}Catalog|Catalog]]" not in home
     assert not (vault / INDEX_ROOT / "Catalog.md").exists()
