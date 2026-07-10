@@ -59,6 +59,7 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
         for source in page.get("sources", []):
             source_pages[(str(source["video_id"]), str(source["chunk_id"]))].append(page)
 
+    add_catalog_source_pages(raw_data, source_pages)
     source_notes = write_source_notes(raw_data, vault, source_pages, records_by_id)
     transcript_notes = write_transcript_notes(raw_data, vault, source_pages)
     indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions, records_by_id)
@@ -282,7 +283,7 @@ def render_sources_index(
     lines = ["# Sources", ""]
     for video_id, chunk_id in sorted(source_pages):
         pages = source_pages[(video_id, chunk_id)]
-        links = ", ".join(article_link(page) for page in pages)
+        links = ", ".join(source_page_link(page) for page in pages)
         transcript = transcript_link(video_id, records_by_id)
         transcript_part = f" — {transcript}" if transcript else ""
         lines.append(
@@ -354,14 +355,29 @@ def render_catalog_category(category: dict[str, Any], known_titles: set[str]) ->
     if topics:
         for topic in topics:
             topic_title = str(topic.get("title", "Untitled"))
+            chunks = catalog_topic_source_links(topic)
+            chunks_suffix = f"; chunks={', '.join(chunks)}" if chunks else ""
             lines.append(
                 f"- {topic_title} — sources={int(topic.get('source_count', 0))}; "
-                f"mentions={int(topic.get('count', 0))}"
+                f"mentions={int(topic.get('count', 0))}{chunks_suffix}"
             )
     else:
         lines.append("Нет отложенных тем.")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def catalog_topic_source_links(topic: dict[str, Any]) -> list[str]:
+    links: list[str] = []
+    for source in topic.get("sources", []):
+        if not isinstance(source, dict):
+            continue
+        video_id = str(source.get("video_id", "")).strip()
+        chunk_id = str(source.get("chunk_id", "")).strip()
+        if not video_id or not chunk_id:
+            continue
+        links.append(f"[[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]")
+    return links
 
 
 def render_deferred_index(raw_data: Path) -> str:
@@ -403,6 +419,44 @@ def article_link(page: dict[str, Any]) -> str:
     return f"[[{note_target_for_title(title)}|{title}]]"
 
 
+def source_page_link(page: dict[str, Any]) -> str:
+    catalog_key = str(page.get("catalog_key", "")).strip()
+    if catalog_key:
+        title = str(page.get("title", "Catalog Topic"))
+        return f"[[Index/Catalog/{catalog_key}|{title}]]"
+    return article_link(page)
+
+
+def add_catalog_source_pages(
+    raw_data: Path,
+    source_pages: dict[tuple[str, str], list[dict[str, Any]]],
+) -> None:
+    for category in read_json_list(raw_data / "catalog" / "categories.json"):
+        catalog_key = str(category.get("key", "")).strip()
+        catalog_title = str(category.get("title", "Catalog"))
+        if not catalog_key:
+            continue
+        for topic in category.get("topics", []):
+            if not isinstance(topic, dict):
+                continue
+            topic_title = str(topic.get("title", "Catalog Topic"))
+            for source in topic.get("sources", []):
+                if not isinstance(source, dict):
+                    continue
+                video_id = str(source.get("video_id", "")).strip()
+                chunk_id = str(source.get("chunk_id", "")).strip()
+                if not video_id or not chunk_id:
+                    continue
+                source_pages[(video_id, chunk_id)].append(
+                    {
+                        "title": topic_title,
+                        "catalog_key": catalog_key,
+                        "catalog_title": catalog_title,
+                        "sources": [source],
+                    }
+                )
+
+
 def write_source_notes(
     raw_data: Path,
     vault: Path,
@@ -424,7 +478,7 @@ def write_source_notes(
             f"- Time: `{start}-{end}`",
             f"- Full transcript: {transcript}" if transcript else "- Full transcript: not found",
             "- Used by:",
-            *[f"  - {article_link(page)}" for page in pages],
+            *[f"  - {source_page_link(page)}" for page in pages],
             "",
             "## Transcript Chunk",
             "",

@@ -25,6 +25,7 @@ def test_build_catalog_groups_articles_and_deferred_topics_by_domain() -> None:
             "domains": ["Software Engineering"],
             "source_count": 1,
             "count": 2,
+            "sources": [{"video_id": "video-a", "chunk_id": "0001", "start": "00:00:00", "end": "00:10:00"}],
         }
     ]
 
@@ -44,7 +45,16 @@ def test_build_catalog_groups_articles_and_deferred_topics_by_domain() -> None:
             "count": 5,
         }
     ]
-    assert category["topics"] == [{"title": "AI code review", "source_count": 1, "count": 2}]
+    assert category["topics"] == [
+        {
+            "title": "AI code review",
+            "source_count": 1,
+            "count": 2,
+            "sources": [
+                {"video_id": "video-a", "chunk_id": "0001", "start": "00:00:00", "end": "00:10:00"}
+            ],
+        }
+    ]
 
 
 def test_build_catalog_preserves_common_domain_acronyms() -> None:

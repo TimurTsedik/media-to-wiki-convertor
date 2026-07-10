@@ -5,6 +5,7 @@
 - Add a deterministic `build-catalog` stage that groups planned articles and deferred topics into higher-level catalog categories.
 - Generate catalog JSON artifacts and Obsidian catalog indexes under `Index/Catalog/`.
 - Add conservative merge suggestions for deferred topics that look like sections or aliases of planned articles.
+- Link catalog topics back to source chunks and avoid empty wiki pages for deferred topics in source indexes.
 
 ## 1.0.1 - 2026-07-10
 

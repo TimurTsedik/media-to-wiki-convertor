@@ -170,11 +170,38 @@ def compact_article(page: dict[str, Any]) -> dict[str, Any]:
 
 
 def compact_catalog_topic(topic: dict[str, Any]) -> dict[str, Any]:
-    return {
+    compact = {
         "title": str(topic.get("title", "")).strip() or "Untitled",
         "source_count": item_source_count(topic),
         "count": item_count(topic),
     }
+    sources = compact_sources(topic)
+    if sources:
+        compact["sources"] = sources
+    return compact
+
+
+def compact_sources(item: dict[str, Any]) -> list[dict[str, str]]:
+    compact: list[dict[str, str]] = []
+    sources = item.get("sources", [])
+    if not isinstance(sources, list):
+        return compact
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        video_id = str(source.get("video_id", "")).strip()
+        chunk_id = str(source.get("chunk_id", "")).strip()
+        if not video_id or not chunk_id:
+            continue
+        row = {"video_id": video_id, "chunk_id": chunk_id}
+        start = str(source.get("start", "")).strip()
+        end = str(source.get("end", "")).strip()
+        if start:
+            row["start"] = start
+        if end:
+            row["end"] = end
+        compact.append(row)
+    return compact
 
 
 def item_source_count(item: dict[str, Any]) -> int:

@@ -64,7 +64,21 @@ def seed_raw_data(raw_data: Path) -> None:
                         "count": 4,
                     }
                 ],
-                "topics": [{"title": "Deferred Topic", "source_count": 1, "count": 1}],
+                "topics": [
+                    {
+                        "title": "Deferred Topic",
+                        "source_count": 1,
+                        "count": 1,
+                        "sources": [
+                            {
+                                "video_id": "video-c",
+                                "chunk_id": "0003",
+                                "start": "00:20:00",
+                                "end": "00:30:00",
+                            }
+                        ],
+                    }
+                ],
             }
         ],
     )
@@ -88,6 +102,10 @@ def seed_raw_data(raw_data: Path) -> None:
     write_json(
         raw_data / "chunks" / "video-b" / "0002.json",
         {"text": "Текст чанка про daily.", "start_hms": "00:10:00", "end_hms": "00:20:00"},
+    )
+    write_json(
+        raw_data / "chunks" / "video-c" / "0003.json",
+        {"text": "Текст deferred-темы.", "start_hms": "00:20:00", "end_hms": "00:30:00"},
     )
     (raw_data / "manifest").mkdir(parents=True)
     (raw_data / "manifest" / "videos.jsonl").write_text(
@@ -115,6 +133,17 @@ def seed_raw_data(raw_data: Path) -> None:
                     },
                     ensure_ascii=False,
                 ),
+                json.dumps(
+                    {
+                        "video_id": "video-c",
+                        "path": "/videos/video-c.mp4",
+                        "title": "Video C",
+                        "extension": ".mp4",
+                        "size_bytes": 789,
+                        "modified_at": "2026-06-30T00:00:00+00:00",
+                    },
+                    ensure_ascii=False,
+                ),
             ]
         )
         + "\n",
@@ -125,6 +154,7 @@ def seed_raw_data(raw_data: Path) -> None:
     for suffix in [".txt", ".srt", ".json"]:
         (transcript_dir / f"video-a{suffix}").write_text("transcript a", encoding="utf-8")
     (transcript_dir / "video-b.txt").write_text("transcript b", encoding="utf-8")
+    (transcript_dir / "video-c.txt").write_text("transcript c", encoding="utf-8")
 
 
 def test_note_path_for_title_splits_slash_titles_into_nested_notes() -> None:
@@ -149,8 +179,8 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     result = build_obsidian_vault(raw_data, vault)
 
     assert result.articles == 2
-    assert result.source_notes == 2
-    assert result.transcript_notes == 2
+    assert result.source_notes == 3
+    assert result.transcript_notes == 3
     assert count_vault_articles(vault) == 2
     assert (vault / ".obsidian" / "app.json").read_text(encoding="utf-8") == "{}"
     assert (vault / "manual.md").read_text(encoding="utf-8") == "do not touch"
@@ -182,8 +212,17 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in catalog_category
     assert "[[Wiki/Deferred Topic" not in catalog_category
     assert "Deferred Topic" in catalog_category
+    assert "[[Sources/Chunks/video-c/0003|video-c/0003]]" in catalog_category
+    sources_index = (vault / "Index" / "Sources.md").read_text(encoding="utf-8")
+    assert "[[Index/Catalog/software-engineering|Deferred Topic]]" in sources_index
+    assert "[[Wiki/Deferred Topic" not in sources_index
     source_note = (vault / "Sources" / "Chunks" / "video-a" / "0001.md").read_text(encoding="utf-8")
     assert "[[90 Transcripts/video-a|Video A]]" in source_note
+    deferred_source_note = (
+        vault / "Sources" / "Chunks" / "video-c" / "0003.md"
+    ).read_text(encoding="utf-8")
+    assert "[[90 Transcripts/video-c|Video C]]" in deferred_source_note
+    assert "[[Index/Catalog/software-engineering|Deferred Topic]]" in deferred_source_note
 
     transcript_index = (vault / "90 Transcripts.md").read_text(encoding="utf-8")
     transcript_note = (vault / "90 Transcripts" / "video-a.md").read_text(encoding="utf-8")
