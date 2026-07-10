@@ -159,3 +159,12 @@ def test_build_course_plan_parser_accepts_command() -> None:
     args = build_parser().parse_args(["build-course-plan"])
 
     assert args.command == "build-course-plan"
+
+
+def test_draft_course_materials_parser_accepts_limit_force_and_dry_run() -> None:
+    args = build_parser().parse_args(["draft-course-materials", "--limit", "3", "--force", "--dry-run"])
+
+    assert args.command == "draft-course-materials"
+    assert args.limit == 3
+    assert args.force is True
+    assert args.dry_run is True

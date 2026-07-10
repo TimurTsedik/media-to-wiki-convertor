@@ -387,9 +387,20 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
         key = str(chapter.get("key", "")).strip() or sanitize_filename_part(
             str(chapter.get("title", "chapter"))
         )
+        draft_path = raw_data / "course_materials" / f"{key}.md"
+        if draft_path.exists() and draft_path.stat().st_size > 0:
+            markdown = rewrite_course_material_links(
+                draft_path.read_text(encoding="utf-8"),
+                {title: note_target_for_title(title) for title in known_titles},
+            )
+            appendix = render_course_chapter_reference_appendix(chapter)
+            if appendix:
+                markdown = markdown.rstrip() + "\n\n" + appendix
+        else:
+            markdown = render_course_chapter(chapter, known_titles)
         write_text(
             vault / "Course Materials" / f"{key}.md",
-            render_course_chapter(chapter, known_titles),
+            markdown,
         )
     return 1 + len(chapters)
 
@@ -444,6 +455,43 @@ def render_course_chapter(chapter: dict[str, Any], known_titles: set[str]) -> st
         lines.append("Пока нет подтем из расширенного списка.")
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def render_course_chapter_reference_appendix(chapter: dict[str, Any]) -> str:
+    topics = chapter.get("topics", [])
+    if not topics:
+        return ""
+
+    lines = ["## Полный список подтем и источников", ""]
+    for topic in topics:
+        if not isinstance(topic, dict):
+            continue
+        topic_title = str(topic.get("title", "Untitled"))
+        chunks = catalog_topic_source_links(topic)
+        chunks_suffix = f" — {', '.join(chunks)}" if chunks else ""
+        lines.append(f"- {topic_title}{chunks_suffix}")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def rewrite_course_material_links(markdown: str, link_targets: dict[str, str]) -> str:
+    known_vault_prefixes = ("Wiki/", "Sources/", "Course Materials/", "Index/", "90 Transcripts/")
+
+    def replace(match: re.Match[str]) -> str:
+        target = match.group(1).strip()
+        alias = match.group(2)
+        base_target, separator, heading = target.partition("#")
+        if base_target.startswith(known_vault_prefixes):
+            return match.group(0)
+        if base_target not in link_targets:
+            return alias if alias is not None else target
+
+        rewritten_target = link_targets[base_target]
+        if separator:
+            rewritten_target = f"{rewritten_target}#{heading}"
+        label = alias if alias is not None else base_target
+        return f"[[{rewritten_target}|{label}]]"
+
+    return LINK_PATTERN.sub(replace, markdown)
 
 
 def catalog_topic_source_links(topic: dict[str, Any]) -> list[str]:

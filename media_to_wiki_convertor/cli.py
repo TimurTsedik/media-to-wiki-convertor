@@ -27,6 +27,13 @@ from media_to_wiki_convertor.course_plan import (
     read_catalog_categories as read_course_catalog_categories,
     write_course_plan,
 )
+from media_to_wiki_convertor.course_materials import (
+    build_course_material_prompt,
+    count_course_materials,
+    draft_course_material,
+    read_course_chapters,
+    select_course_source_packs,
+)
 from media_to_wiki_convertor.draft_articles import (
     build_article_prompt,
     count_draft_articles,
@@ -84,6 +91,7 @@ def ensure_raw_layout(raw_data: Path) -> None:
         "article_plan",
         "catalog",
         "course_plan",
+        "course_materials",
         "draft_articles",
         "summaries/chunks",
         "summaries/videos",
@@ -111,6 +119,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"catalog_categories:{count_catalog_categories(config.paths.raw_data)}")
     say(f"course_chapters:{count_course_plan_chapters(config.paths.raw_data)}")
     say(f"draft_articles:{count_draft_articles(config.paths.raw_data)}")
+    say(f"course_materials:{count_course_materials(config.paths.raw_data)}")
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -857,6 +866,138 @@ def draft_articles(
     return 1 if failed else 0
 
 
+def draft_course_materials(
+    config: PipelineConfig,
+    model: str | None,
+    limit: int | None,
+    force: bool,
+    dry_run: bool,
+) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    try:
+        chapters = read_course_chapters(config.paths.raw_data)
+        source_packs = select_course_source_packs(config.paths.raw_data, chapters, limit=limit)
+    except ValueError as exc:
+        say(str(exc))
+        return 1
+
+    if not chapters:
+        say("No course plan chapters found.")
+        say("Run `python3 -m media_to_wiki_convertor build-course-plan` first.")
+        return 0
+    if not source_packs:
+        say("No course source packs found.")
+        say("Run `python3 -m media_to_wiki_convertor build-course-plan` first.")
+        return 0
+
+    pages = read_article_pages(config.paths.raw_data)
+    known_titles = [str(page["title"]) for page in pages]
+    selected_model = model or config.llm.model
+    llm_config = replace(config.llm, model=selected_model)
+    say(
+        "Draft course materials settings: "
+        f"provider={llm_config.provider}, model={selected_model}, "
+        f"output_language={config.wiki.language}, "
+        f"chapters={len(source_packs)}, force={force}, dry_run={dry_run}"
+    )
+
+    if dry_run:
+        say(
+            build_course_material_prompt(
+                source_packs[0],
+                known_titles,
+                output_language=config.wiki.language,
+            )
+        )
+        return 0
+
+    try:
+        client = create_article_client(llm_config, output_language=config.wiki.language)
+    except RuntimeError as exc:
+        say(str(exc))
+        return 1
+
+    created = 0
+    skipped = 0
+    failed = 0
+    events = RunEventWriter(config.paths.raw_data)
+    batch_started_at = time.monotonic()
+    for index, source_pack in enumerate(source_packs, start=1):
+        started_at = time.monotonic()
+        chapter = source_pack["chapter"]
+        title = str(chapter["title"])
+        event_started_at = start_run_event(
+            events,
+            "draft-course-materials",
+            title,
+            f"course material draft start {title}",
+        )
+        say(
+            f"[{index}/{len(source_packs)}] course material start {title} "
+            f"at {format_wall_time(event_started_at)}"
+        )
+        try:
+            result = draft_course_material(
+                config.paths.raw_data,
+                source_pack,
+                client,
+                known_titles,
+                force=force,
+            )
+        except Exception as exc:
+            failed += 1
+            elapsed = format_elapsed(time.monotonic() - started_at)
+            finished_at = finish_run_event(
+                events,
+                stage="draft-course-materials",
+                item_id=title,
+                status="failed",
+                started_at=event_started_at,
+                message=f"course material draft failed {title}",
+                error=str(exc),
+            )
+            say(
+                f"[{index}/{len(source_packs)}] course material failed {title} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {exc}"
+            )
+            continue
+
+        elapsed = format_elapsed(time.monotonic() - started_at)
+        if result.skipped:
+            skipped += 1
+            status = "skipped"
+            message = f"course material draft skipped {title}"
+        else:
+            created += 1
+            status = "success"
+            message = f"course material drafted {title}"
+        finished_at = finish_run_event(
+            events,
+            stage="draft-course-materials",
+            item_id=title,
+            status=status,
+            started_at=event_started_at,
+            message=message,
+        )
+        if result.skipped:
+            say(
+                f"[{index}/{len(source_packs)}] course material skip {title} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
+            )
+        else:
+            say(
+                f"[{index}/{len(source_packs)}] course material drafted {title} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
+            )
+
+    total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
+    say(
+        f"Draft course materials complete in {total_elapsed}: "
+        f"created={created}, skipped={skipped}, failed={failed}"
+    )
+    return 1 if failed else 0
+
+
 def build_vault(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     started_at = time.monotonic()
@@ -932,6 +1073,11 @@ def pipeline_stages() -> dict[str, PipelineStage]:
         "draft-articles": PipelineStage(
             "draft-articles",
             lambda config: draft_articles(config, None, None, False, False),
+            expensive=True,
+        ),
+        "draft-course-materials": PipelineStage(
+            "draft-course-materials",
+            lambda config: draft_course_materials(config, None, None, False, False),
             expensive=True,
         ),
         "build-vault": PipelineStage("build-vault", lambda config: build_vault(config)),
@@ -1104,6 +1250,31 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the first article prompt without calling the API.",
     )
+    draft_course_parser = subparsers.add_parser(
+        "draft-course-materials",
+        help="Draft Course Materials chapter Markdown from course_plan/source_packs.",
+    )
+    draft_course_parser.add_argument(
+        "--model",
+        default=None,
+        help="LLM model. Defaults to [llm].model in config.",
+    )
+    draft_course_parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Draft only the first N course chapters from course_plan/chapters.json.",
+    )
+    draft_course_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild existing course material Markdown files.",
+    )
+    draft_course_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the first course material prompt without calling the API.",
+    )
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Build the Obsidian vault from drafted articles.")
     return parser
@@ -1185,6 +1356,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_course_plan(config)
     if args.command == "draft-articles":
         return draft_articles(config, args.model, args.limit, args.force, args.dry_run)
+    if args.command == "draft-course-materials":
+        return draft_course_materials(config, args.model, args.limit, args.force, args.dry_run)
     if args.command == "build-vault":
         return build_vault(config)
 

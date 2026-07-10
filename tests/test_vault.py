@@ -114,6 +114,11 @@ def seed_raw_data(raw_data: Path) -> None:
             }
         ],
     )
+    (raw_data / "course_materials").mkdir(parents=True)
+    (raw_data / "course_materials" / "software-engineering.md").write_text(
+        "# Software Engineering\n\nLLM draft.\n\n[[Wiki/Spec Driven Development|Spec Driven Development]]\n",
+        encoding="utf-8",
+    )
     (raw_data / "draft_articles").mkdir(parents=True)
     (raw_data / "draft_articles" / "spec-driven-development.md").write_text(
         "# Spec Driven Development\n\nСм. [[Daily / Standup]] и [[Unknown Topic]].\n\n## Источники\n- video-a/0001 00:00:00-00:10:00\n",
@@ -250,7 +255,9 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
         encoding="utf-8"
     )
     assert "[[Course Materials/software-engineering|Software Engineering]]" in course_index
+    assert "LLM draft." in course_chapter
     assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in course_chapter
+    assert "## Полный список подтем и источников" in course_chapter
     assert "Deferred Topic" in course_chapter
     assert "[[Sources/Chunks/video-c/0003|video-c/0003]]" in course_chapter
     assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in catalog_category

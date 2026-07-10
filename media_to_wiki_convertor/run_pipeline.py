@@ -18,6 +18,7 @@ STAGE_NAMES = [
     "build-catalog",
     "build-course-plan",
     "draft-articles",
+    "draft-course-materials",
     "build-vault",
 ]
 

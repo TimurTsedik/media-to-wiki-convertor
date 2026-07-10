@@ -15,6 +15,11 @@ def test_default_pipeline_builds_course_plan_before_drafting() -> None:
     assert STAGE_NAMES.index("build-course-plan") < STAGE_NAMES.index("draft-articles")
 
 
+def test_default_pipeline_drafts_course_materials_after_articles() -> None:
+    assert STAGE_NAMES.index("draft-articles") < STAGE_NAMES.index("draft-course-materials")
+    assert STAGE_NAMES.index("draft-course-materials") < STAGE_NAMES.index("build-vault")
+
+
 def test_select_stages_can_start_from_stage() -> None:
     assert select_stages(from_stage="transcribe") == STAGE_NAMES[STAGE_NAMES.index("transcribe") :]
 

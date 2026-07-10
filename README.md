@@ -21,6 +21,7 @@ It does the boring heavy lifting:
 - builds a high-level catalog from planned and deferred topics
 - builds course reference chapters from catalog topics
 - drafts wiki articles
+- drafts course reference materials
 - builds an Obsidian vault with links back to chunks and transcripts
 
 ## Why This Exists
@@ -39,6 +40,7 @@ videos
   -> catalog
   -> course materials plan
   -> drafted wiki pages
+  -> drafted course materials
   -> Obsidian vault
 ```
 
@@ -191,6 +193,7 @@ media-to-wiki-convertor build-article-plan
 media-to-wiki-convertor build-catalog
 media-to-wiki-convertor build-course-plan
 media-to-wiki-convertor draft-articles
+media-to-wiki-convertor draft-course-materials --limit 3
 media-to-wiki-convertor build-vault
 ```
 
@@ -217,6 +220,7 @@ You can also run stages one by one.
 | `build-catalog` | Groups planned articles and deferred topics into deterministic catalog categories with merge suggestions. |
 | `build-course-plan` | Builds deterministic course reference chapters from catalog categories, existing articles, and deferred topics. |
 | `draft-articles` | Uses the configured LLM provider to draft wiki article Markdown. |
+| `draft-course-materials` | Uses the configured LLM provider to draft course reference chapter Markdown. |
 | `build-vault` | Builds the final Obsidian vault. |
 
 Example:
@@ -232,6 +236,7 @@ media-to-wiki-convertor build-article-plan
 media-to-wiki-convertor build-catalog
 media-to-wiki-convertor build-course-plan
 media-to-wiki-convertor draft-articles
+media-to-wiki-convertor draft-course-materials --limit 3
 media-to-wiki-convertor build-vault
 ```
 
@@ -290,7 +295,7 @@ The vault contains:
 Expected result:
 
 ```text
-118 passed
+126 passed
 ```
 
 ## Notes
