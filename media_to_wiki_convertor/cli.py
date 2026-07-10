@@ -28,6 +28,8 @@ from media_to_wiki_convertor.course_plan import (
     write_course_plan,
 )
 from media_to_wiki_convertor.course_materials import (
+    DEFAULT_MAX_CHUNK_CHARS,
+    DEFAULT_MAX_PROMPT_TOPICS,
     build_course_material_prompt,
     count_course_materials,
     draft_course_material,
@@ -48,7 +50,11 @@ from media_to_wiki_convertor.knowledge import (
     extract_chunk_knowledge,
     select_chunk_payloads,
 )
-from media_to_wiki_convertor.llm_clients import create_article_client, create_knowledge_client
+from media_to_wiki_convertor.llm_clients import (
+    create_article_client,
+    create_course_material_client,
+    create_knowledge_client,
+)
 from media_to_wiki_convertor.manifest import (
     build_video_record,
     iter_video_files,
@@ -872,6 +878,8 @@ def draft_course_materials(
     limit: int | None,
     force: bool,
     dry_run: bool,
+    max_topics: int,
+    max_chunk_chars: int,
 ) -> int:
     ensure_raw_layout(config.paths.raw_data)
     try:
@@ -898,7 +906,8 @@ def draft_course_materials(
         "Draft course materials settings: "
         f"provider={llm_config.provider}, model={selected_model}, "
         f"output_language={config.wiki.language}, "
-        f"chapters={len(source_packs)}, force={force}, dry_run={dry_run}"
+        f"chapters={len(source_packs)}, force={force}, dry_run={dry_run}, "
+        f"max_topics={max_topics}, max_chunk_chars={max_chunk_chars}"
     )
 
     if dry_run:
@@ -907,12 +916,19 @@ def draft_course_materials(
                 source_packs[0],
                 known_titles,
                 output_language=config.wiki.language,
+                max_topics=max_topics,
+                max_chunk_chars=max_chunk_chars,
             )
         )
         return 0
 
     try:
-        client = create_article_client(llm_config, output_language=config.wiki.language)
+        client = create_course_material_client(
+            llm_config,
+            output_language=config.wiki.language,
+            max_topics=max_topics,
+            max_chunk_chars=max_chunk_chars,
+        )
     except RuntimeError as exc:
         say(str(exc))
         return 1
@@ -1077,7 +1093,15 @@ def pipeline_stages() -> dict[str, PipelineStage]:
         ),
         "draft-course-materials": PipelineStage(
             "draft-course-materials",
-            lambda config: draft_course_materials(config, None, None, False, False),
+            lambda config: draft_course_materials(
+                config,
+                None,
+                None,
+                False,
+                False,
+                DEFAULT_MAX_PROMPT_TOPICS,
+                DEFAULT_MAX_CHUNK_CHARS,
+            ),
             expensive=True,
         ),
         "build-vault": PipelineStage("build-vault", lambda config: build_vault(config)),
@@ -1275,6 +1299,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the first course material prompt without calling the API.",
     )
+    draft_course_parser.add_argument(
+        "--max-topics",
+        type=int,
+        default=DEFAULT_MAX_PROMPT_TOPICS,
+        help="Maximum source topics to include in each course material prompt.",
+    )
+    draft_course_parser.add_argument(
+        "--max-chunk-chars",
+        type=int,
+        default=DEFAULT_MAX_CHUNK_CHARS,
+        help="Maximum transcript characters to include per source chunk in each course material prompt.",
+    )
     subparsers.add_parser("summarize", help="Planned low-token summarization stage.")
     subparsers.add_parser("build-vault", help="Build the Obsidian vault from drafted articles.")
     return parser
@@ -1357,7 +1393,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "draft-articles":
         return draft_articles(config, args.model, args.limit, args.force, args.dry_run)
     if args.command == "draft-course-materials":
-        return draft_course_materials(config, args.model, args.limit, args.force, args.dry_run)
+        return draft_course_materials(
+            config,
+            args.model,
+            args.limit,
+            args.force,
+            args.dry_run,
+            args.max_topics,
+            args.max_chunk_chars,
+        )
     if args.command == "build-vault":
         return build_vault(config)
 

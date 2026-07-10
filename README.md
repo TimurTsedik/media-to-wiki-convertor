@@ -223,6 +223,18 @@ You can also run stages one by one.
 | `draft-course-materials` | Uses the configured LLM provider to draft course reference chapter Markdown. |
 | `build-vault` | Builds the final Obsidian vault. |
 
+`draft-course-materials` uses a compact prompt budget by default so small-context models do not choke on large course chapters. Start with a small test batch:
+
+```bash
+media-to-wiki-convertor draft-course-materials --limit 3
+```
+
+If your model has a larger context window and you want richer chapter drafts, increase the source budget:
+
+```bash
+media-to-wiki-convertor draft-course-materials --limit 3 --max-topics 16 --max-chunk-chars 700
+```
+
 Example:
 
 ```bash

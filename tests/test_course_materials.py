@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 
 from media_to_wiki_convertor.course_materials import (
+    DEFAULT_MAX_CHUNK_CHARS,
+    DEFAULT_MAX_PROMPT_TOPICS,
+    OpenAICourseMaterialClient,
     build_course_material_prompt,
     count_course_materials,
     draft_course_material,
@@ -91,6 +94,25 @@ def test_build_course_material_prompt_compacts_large_source_packs() -> None:
     assert "xxxxxxxxxxxxxxxxxxxx..." in prompt
 
 
+def test_build_course_material_prompt_defaults_to_small_model_budget() -> None:
+    source_pack = sample_course_source_pack()
+    source_pack["topics"] = [
+        {
+            "title": f"Topic {index}",
+            "source_count": 1,
+            "count": 1,
+            "sources": [{"video_id": "a", "chunk_id": str(index), "chunk_text": "x" * 1000}],
+        }
+        for index in range(DEFAULT_MAX_PROMPT_TOPICS + 2)
+    ]
+
+    prompt = build_course_material_prompt(source_pack, known_titles=[])
+
+    assert f"Topic {DEFAULT_MAX_PROMPT_TOPICS - 1}" in prompt
+    assert f"Topic {DEFAULT_MAX_PROMPT_TOPICS}" not in prompt
+    assert ("x" * DEFAULT_MAX_CHUNK_CHARS + "...") in prompt
+
+
 def test_select_course_source_packs_follows_chapter_order_and_limit(tmp_path: Path) -> None:
     source_packs_dir = tmp_path / "course_plan" / "source_packs"
     source_packs_dir.mkdir(parents=True)
@@ -160,3 +182,48 @@ def test_draft_course_material_force_rebuilds_existing(tmp_path: Path) -> None:
 
     assert not result.skipped
     assert output_path.read_text(encoding="utf-8") == "# Architecture\n\nНовый текст.\n"
+
+
+def test_openai_course_material_client_uses_compact_course_prompt() -> None:
+    requests: list[dict] = []
+    source_pack = sample_course_source_pack()
+    source_pack["topics"] = [
+        {
+            "title": "Included topic",
+            "source_count": 1,
+            "count": 1,
+            "sources": [{"video_id": "a", "chunk_id": "1", "chunk_text": "x" * 200}],
+        },
+        {
+            "title": "Excluded topic",
+            "source_count": 1,
+            "count": 1,
+            "sources": [{"video_id": "b", "chunk_id": "2", "chunk_text": "y" * 200}],
+        },
+    ]
+
+    def fake_transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        requests.append({"url": url, "headers": headers, "payload": payload})
+        return {"output_text": "# Architecture\n\nТекст."}
+
+    client = OpenAICourseMaterialClient(
+        api_key="secret",
+        model="gpt-5.4-mini",
+        output_language="ru",
+        max_topics=1,
+        max_chunk_chars=20,
+        transport=fake_transport,
+    )
+
+    markdown = client.draft(source_pack, known_titles=["Clean Architecture"])
+
+    assert markdown == "# Architecture\n\nТекст.\n"
+    payload = requests[0]["payload"]
+    assert payload["model"] == "gpt-5.4-mini"
+    assert "справочные материалы по курсу" in payload["input"][0]["content"]
+    prompt = payload["input"][1]["content"]
+    assert "COURSE_SOURCE_PACK" in prompt
+    assert "Пиши статью на языке" not in prompt
+    assert "Included topic" in prompt
+    assert "Excluded topic" not in prompt
+    assert "xxxxxxxxxxxxxxxxxxxx..." in prompt

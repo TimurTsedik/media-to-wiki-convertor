@@ -2,12 +2,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
+
+from media_to_wiki_convertor.draft_articles import parse_response_text
+from media_to_wiki_convertor.knowledge import (
+    default_transport,
+    gemini_url,
+    parse_anthropic_text,
+    parse_gemini_text,
+    validate_api_key,
+    validate_openai_api_key,
+)
+
+DEFAULT_MAX_PROMPT_TOPICS = 8
+DEFAULT_MAX_CHUNK_CHARS = 350
 
 
-DEFAULT_MAX_PROMPT_TOPICS = 30
-DEFAULT_MAX_CHUNK_CHARS = 900
+Transport = Callable[[str, dict[str, str], dict[str, Any]], dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -19,6 +32,220 @@ class DraftCourseMaterialResult:
 class CourseMaterialClient(Protocol):
     def draft(self, source_pack: dict[str, Any], known_titles: list[str]) -> str:
         ...
+
+
+class OpenAICourseMaterialClient:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        output_language: str = "ru",
+        endpoint: str = "https://api.openai.com/v1/responses",
+        transport: Transport | None = None,
+        max_topics: int = DEFAULT_MAX_PROMPT_TOPICS,
+        max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    ) -> None:
+        self.api_key = validate_openai_api_key(api_key)
+        self.model = model
+        self.output_language = output_language
+        self.endpoint = endpoint
+        self.transport = transport or default_transport
+        self.max_topics = max_topics
+        self.max_chunk_chars = max_chunk_chars
+
+    @classmethod
+    def from_env(
+        cls,
+        model: str,
+        output_language: str = "ru",
+        api_key_env: str = "OPENAI_API_KEY",
+        endpoint: str = "https://api.openai.com/v1/responses",
+        max_topics: int = DEFAULT_MAX_PROMPT_TOPICS,
+        max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    ) -> "OpenAICourseMaterialClient":
+        api_key = os.environ.get(api_key_env)
+        if api_key is None:
+            raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell or .env.")
+        validate_openai_api_key(api_key, api_key_env)
+        return cls(
+            api_key=api_key,
+            model=model,
+            output_language=output_language,
+            endpoint=endpoint,
+            max_topics=max_topics,
+            max_chunk_chars=max_chunk_chars,
+        )
+
+    def draft(self, source_pack: dict[str, Any], known_titles: list[str]) -> str:
+        payload = {
+            "model": self.model,
+            "input": [
+                {"role": "system", "content": build_course_material_system_prompt(self.output_language)},
+                {
+                    "role": "user",
+                    "content": build_course_material_prompt(
+                        source_pack,
+                        known_titles,
+                        output_language=self.output_language,
+                        max_topics=self.max_topics,
+                        max_chunk_chars=self.max_chunk_chars,
+                    ),
+                },
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        response = self.transport(self.endpoint, headers, payload)
+        return parse_response_text(response).strip() + "\n"
+
+
+class AnthropicCourseMaterialClient:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        output_language: str = "ru",
+        endpoint: str = "https://api.anthropic.com/v1/messages",
+        transport: Transport | None = None,
+        max_tokens: int = 8192,
+        max_topics: int = DEFAULT_MAX_PROMPT_TOPICS,
+        max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    ) -> None:
+        self.api_key = validate_api_key(
+            api_key,
+            api_key_env="ANTHROPIC_API_KEY",
+            provider="anthropic",
+        )
+        self.model = model
+        self.output_language = output_language
+        self.endpoint = endpoint
+        self.transport = transport or default_transport
+        self.max_tokens = max_tokens
+        self.max_topics = max_topics
+        self.max_chunk_chars = max_chunk_chars
+
+    @classmethod
+    def from_env(
+        cls,
+        model: str,
+        output_language: str = "ru",
+        api_key_env: str = "ANTHROPIC_API_KEY",
+        endpoint: str = "https://api.anthropic.com/v1/messages",
+        max_topics: int = DEFAULT_MAX_PROMPT_TOPICS,
+        max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    ) -> "AnthropicCourseMaterialClient":
+        api_key = os.environ.get(api_key_env)
+        if api_key is None:
+            raise RuntimeError(f"Missing API key for anthropic. Set {api_key_env} in your shell or .env.")
+        validate_api_key(api_key, api_key_env=api_key_env, provider="anthropic")
+        return cls(
+            api_key=api_key,
+            model=model,
+            output_language=output_language,
+            endpoint=endpoint,
+            max_topics=max_topics,
+            max_chunk_chars=max_chunk_chars,
+        )
+
+    def draft(self, source_pack: dict[str, Any], known_titles: list[str]) -> str:
+        payload = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "system": build_course_material_system_prompt(self.output_language),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": build_course_material_prompt(
+                        source_pack,
+                        known_titles,
+                        output_language=self.output_language,
+                        max_topics=self.max_topics,
+                        max_chunk_chars=self.max_chunk_chars,
+                    ),
+                }
+            ],
+        }
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+        response = self.transport(self.endpoint, headers, payload)
+        return parse_anthropic_text(response).strip() + "\n"
+
+
+class GeminiCourseMaterialClient:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        output_language: str = "ru",
+        endpoint: str = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        transport: Transport | None = None,
+        max_topics: int = DEFAULT_MAX_PROMPT_TOPICS,
+        max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    ) -> None:
+        self.api_key = validate_api_key(
+            api_key,
+            api_key_env="GEMINI_API_KEY",
+            provider="gemini",
+        )
+        self.model = model
+        self.output_language = output_language
+        self.endpoint = endpoint
+        self.transport = transport or default_transport
+        self.max_topics = max_topics
+        self.max_chunk_chars = max_chunk_chars
+
+    @classmethod
+    def from_env(
+        cls,
+        model: str,
+        output_language: str = "ru",
+        api_key_env: str = "GEMINI_API_KEY",
+        endpoint: str = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        max_topics: int = DEFAULT_MAX_PROMPT_TOPICS,
+        max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    ) -> "GeminiCourseMaterialClient":
+        api_key = os.environ.get(api_key_env)
+        if api_key is None:
+            raise RuntimeError(f"Missing API key for gemini. Set {api_key_env} in your shell or .env.")
+        validate_api_key(api_key, api_key_env=api_key_env, provider="gemini")
+        return cls(
+            api_key=api_key,
+            model=model,
+            output_language=output_language,
+            endpoint=endpoint,
+            max_topics=max_topics,
+            max_chunk_chars=max_chunk_chars,
+        )
+
+    def draft(self, source_pack: dict[str, Any], known_titles: list[str]) -> str:
+        prompt = "\n\n".join(
+            [
+                build_course_material_system_prompt(self.output_language),
+                build_course_material_prompt(
+                    source_pack,
+                    known_titles,
+                    output_language=self.output_language,
+                    max_topics=self.max_topics,
+                    max_chunk_chars=self.max_chunk_chars,
+                ),
+            ]
+        )
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
+            ]
+        }
+        headers = {"Content-Type": "application/json"}
+        response = self.transport(gemini_url(self.endpoint, self.model, self.api_key), headers, payload)
+        return parse_gemini_text(response).strip() + "\n"
 
 
 def build_course_material_system_prompt(output_language: str = "ru") -> str:

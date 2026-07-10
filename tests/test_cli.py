@@ -161,10 +161,24 @@ def test_build_course_plan_parser_accepts_command() -> None:
     assert args.command == "build-course-plan"
 
 
-def test_draft_course_materials_parser_accepts_limit_force_and_dry_run() -> None:
-    args = build_parser().parse_args(["draft-course-materials", "--limit", "3", "--force", "--dry-run"])
+def test_draft_course_materials_parser_accepts_limit_force_dry_run_and_prompt_budget() -> None:
+    args = build_parser().parse_args(
+        [
+            "draft-course-materials",
+            "--limit",
+            "3",
+            "--force",
+            "--dry-run",
+            "--max-topics",
+            "8",
+            "--max-chunk-chars",
+            "300",
+        ]
+    )
 
     assert args.command == "draft-course-materials"
     assert args.limit == 3
     assert args.force is True
     assert args.dry_run is True
+    assert args.max_topics == 8
+    assert args.max_chunk_chars == 300
