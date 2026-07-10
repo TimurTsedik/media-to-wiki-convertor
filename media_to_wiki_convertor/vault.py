@@ -648,13 +648,8 @@ def rewrite_course_material_links(
     source_targets: set[tuple[str, str]] | None = None,
     source_alias_targets: dict[tuple[str, str], tuple[str, str]] | None = None,
 ) -> str:
-    known_vault_prefixes = (
-        f"{ARTICLE_ROOT}/",
-        f"{SOURCE_ROOT}/",
-        f"{COURSE_ROOT}/",
-        f"{INDEX_ROOT}/",
-        f"{TRANSCRIPT_ROOT}/",
-    )
+    known_vault_roots = (ARTICLE_ROOT, SOURCE_ROOT, COURSE_ROOT, INDEX_ROOT, TRANSCRIPT_ROOT)
+    known_vault_prefixes = tuple(f"{root}/" for root in known_vault_roots)
     source_targets = source_targets or set()
     source_alias_targets = source_alias_targets or {}
 
@@ -669,7 +664,7 @@ def rewrite_course_material_links(
                 rewritten_target = f"{rewritten_target}#{heading}"
             label = alias if alias is not None else base_target.rsplit("/", 1)[-1]
             return f"[[{rewritten_target}|{label}]]"
-        if base_target.startswith(known_vault_prefixes):
+        if base_target in known_vault_roots or base_target.startswith(known_vault_prefixes):
             return match.group(0)
         if base_target not in link_targets:
             return alias if alias is not None else target

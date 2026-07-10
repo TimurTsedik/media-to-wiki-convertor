@@ -312,6 +312,24 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
     assert f"[[{SOURCE_PREFIX}Chunks/f323d805b520/0011|готовая ссылка]]" in rewritten
 
 
+def test_rewrite_course_material_links_preserves_existing_vault_root_links() -> None:
+    markdown = (
+        "[[04 Sources]]\n"
+        "[[04 Sources|Sources]]\n"
+        "[[02 Reference Wiki|Wiki]]\n"
+        "[[01 Course Materials]]\n"
+        "[[05 Transcripts|Transcripts]]\n"
+    )
+
+    rewritten = rewrite_course_material_links(markdown, {})
+
+    assert "[[04 Sources]]" in rewritten
+    assert "[[04 Sources|Sources]]" in rewritten
+    assert "[[02 Reference Wiki|Wiki]]" in rewritten
+    assert "[[01 Course Materials]]" in rewritten
+    assert "[[05 Transcripts|Transcripts]]" in rewritten
+
+
 def test_rewrite_course_material_map_links_links_articles_and_local_headings() -> None:
     markdown = """# Software Engineering
 
