@@ -147,3 +147,9 @@ def test_build_article_plan_default_keeps_single_source_topics() -> None:
     args = build_parser().parse_args(["build-article-plan"])
 
     assert args.min_sources == 1
+
+
+def test_build_catalog_parser_accepts_command() -> None:
+    args = build_parser().parse_args(["build-catalog"])
+
+    assert args.command == "build-catalog"

@@ -47,6 +47,31 @@ def seed_raw_data(raw_data: Path) -> None:
         raw_data / "article_plan" / "deferred.json",
         [{"title": "Deferred Topic", "domains": ["Software Engineering"], "source_count": 1}],
     )
+    write_json(
+        raw_data / "catalog" / "categories.json",
+        [
+            {
+                "key": "software-engineering",
+                "title": "Software Engineering",
+                "article_count": 1,
+                "deferred_count": 1,
+                "source_count": 3,
+                "articles": [
+                    {
+                        "title": "Spec Driven Development",
+                        "slug": "spec-driven-development",
+                        "source_count": 2,
+                        "count": 4,
+                    }
+                ],
+                "topics": [{"title": "Deferred Topic", "source_count": 1, "count": 1}],
+            }
+        ],
+    )
+    write_json(
+        raw_data / "catalog" / "summary.json",
+        {"categories": 1, "articles": 2, "deferred_topics": 1, "merge_suggestions": 0},
+    )
     (raw_data / "draft_articles").mkdir(parents=True)
     (raw_data / "draft_articles" / "spec-driven-development.md").write_text(
         "# Spec Driven Development\n\nСм. [[Daily / Standup]] и [[Unknown Topic]].\n\n## Источники\n- video-a/0001 00:00:00-00:10:00\n",
@@ -145,8 +170,18 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert (vault / "Index" / "Articles.md").exists()
     assert (vault / "Index" / "Domains.md").exists()
     assert (vault / "Index" / "Sources.md").exists()
+    assert (vault / "Index" / "Catalog.md").exists()
+    assert (vault / "Index" / "Catalog" / "software-engineering.md").exists()
     assert (vault / "Index" / "Deferred Topics.md").exists()
     assert "Unknown Topic" in (vault / "Index" / "Unlinked Mentions.md").read_text(encoding="utf-8")
+    home = (vault / "00 Home.md").read_text(encoding="utf-8")
+    catalog_index = (vault / "Index" / "Catalog.md").read_text(encoding="utf-8")
+    catalog_category = (vault / "Index" / "Catalog" / "software-engineering.md").read_text(encoding="utf-8")
+    assert "[[Index/Catalog|Catalog]]" in home
+    assert "[[Index/Catalog/software-engineering|Software Engineering]]" in catalog_index
+    assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in catalog_category
+    assert "[[Wiki/Deferred Topic" not in catalog_category
+    assert "Deferred Topic" in catalog_category
     source_note = (vault / "Sources" / "Chunks" / "video-a" / "0001.md").read_text(encoding="utf-8")
     assert "[[90 Transcripts/video-a|Video A]]" in source_note
 
@@ -157,3 +192,18 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert "[SRT](" in transcript_note
     assert "[JSON](" in transcript_note
     assert "[[Sources/Chunks/video-a/0001|video-a/0001]]" in transcript_note
+
+
+def test_build_obsidian_vault_omits_catalog_link_when_catalog_is_missing(tmp_path: Path) -> None:
+    raw_data = tmp_path / "raw data"
+    vault = tmp_path / "vault"
+    seed_raw_data(raw_data)
+    catalog_dir = raw_data / "catalog"
+    for path in catalog_dir.glob("*.json"):
+        path.unlink()
+
+    build_obsidian_vault(raw_data, vault)
+
+    home = (vault / "00 Home.md").read_text(encoding="utf-8")
+    assert "[[Index/Catalog|Catalog]]" not in home
+    assert not (vault / "Index" / "Catalog.md").exists()

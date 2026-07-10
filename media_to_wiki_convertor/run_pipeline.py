@@ -15,6 +15,7 @@ STAGE_NAMES = [
     "extract-knowledge",
     "build-topic-index",
     "build-article-plan",
+    "build-catalog",
     "draft-articles",
     "build-vault",
 ]

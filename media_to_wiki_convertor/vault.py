@@ -190,7 +190,8 @@ def write_indexes(
     write_text(vault / "Index" / "Sources.md", render_sources_index(source_pages, records_by_id))
     write_text(vault / "Index" / "Deferred Topics.md", render_deferred_index(raw_data))
     write_text(vault / "Index" / "Unlinked Mentions.md", render_unlinked_mentions(unlinked_mentions))
-    return 5
+    catalog_indexes = write_catalog_indexes(raw_data, vault, pages)
+    return 5 + catalog_indexes
 
 
 def write_home(
@@ -201,19 +202,29 @@ def write_home(
     transcript_notes: int,
 ) -> None:
     summary = read_json_object(raw_data / "article_plan" / "summary.json")
+    has_catalog = bool(read_json_list(raw_data / "catalog" / "categories.json"))
     chunks_count = count_files(raw_data / "chunks", "*.json")
     knowledge_count = count_files(raw_data / "extracted_knowledge", "*.json")
     drafts_count = count_files(raw_data / "draft_articles", "*.md")
+    navigation = [
+        "- [[Index/Articles|Articles]]",
+        "- [[Index/Domains|Domains]]",
+    ]
+    if has_catalog:
+        navigation.append("- [[Index/Catalog|Catalog]]")
+    navigation.extend(
+        [
+            "- [[Index/Sources|Sources]]",
+            "- [[90 Transcripts|Transcripts]]",
+            "- [[Index/Deferred Topics|Deferred Topics]]",
+            "- [[Index/Unlinked Mentions|Unlinked Mentions]]",
+        ]
+    )
     lines = [
         "# Larchenko Training Wiki",
         "",
         "## Навигация",
-        "- [[Index/Articles|Articles]]",
-        "- [[Index/Domains|Domains]]",
-        "- [[Index/Sources|Sources]]",
-        "- [[90 Transcripts|Transcripts]]",
-        "- [[Index/Deferred Topics|Deferred Topics]]",
-        "- [[Index/Unlinked Mentions|Unlinked Mentions]]",
+        *navigation,
         "",
         "## Статус базы",
         f"- Wiki-статей: {len(pages)}",
@@ -278,6 +289,78 @@ def render_sources_index(
             f"- [[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]"
             f"{transcript_part} — {links}"
         )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_catalog_indexes(raw_data: Path, vault: Path, pages: list[dict[str, Any]]) -> int:
+    categories = read_json_list(raw_data / "catalog" / "categories.json")
+    if not categories:
+        return 0
+
+    known_titles = {str(page.get("title", "")) for page in pages}
+    write_text(vault / "Index" / "Catalog.md", render_catalog_index(categories))
+    for category in categories:
+        key = str(category.get("key", "")).strip() or sanitize_filename_part(
+            str(category.get("title", "Catalog"))
+        )
+        write_text(
+            vault / "Index" / "Catalog" / f"{key}.md",
+            render_catalog_category(category, known_titles),
+        )
+    return 1 + len(categories)
+
+
+def render_catalog_index(categories: list[dict[str, Any]]) -> str:
+    lines = ["# Catalog", ""]
+    for category in categories:
+        title = str(category.get("title", "Untitled"))
+        key = str(category.get("key", "untitled"))
+        article_count = int(category.get("article_count", 0))
+        deferred_count = int(category.get("deferred_count", 0))
+        source_count = int(category.get("source_count", 0))
+        lines.append(
+            f"- [[Index/Catalog/{key}|{title}]] — "
+            f"articles={article_count}; topics={deferred_count}; sources={source_count}"
+        )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_catalog_category(category: dict[str, Any], known_titles: set[str]) -> str:
+    title = str(category.get("title", "Untitled"))
+    lines = [
+        f"# {title}",
+        "",
+        f"- Articles: {int(category.get('article_count', 0))}",
+        f"- Deferred topics: {int(category.get('deferred_count', 0))}",
+        f"- Sources: {int(category.get('source_count', 0))}",
+        "",
+        "## Articles",
+        "",
+    ]
+    articles = category.get("articles", [])
+    if articles:
+        for article in articles:
+            article_title = str(article.get("title", "Untitled"))
+            label = article_link({"title": article_title}) if article_title in known_titles else article_title
+            lines.append(
+                f"- {label} — sources={int(article.get('source_count', 0))}; "
+                f"mentions={int(article.get('count', 0))}"
+            )
+    else:
+        lines.append("Нет статей.")
+
+    lines.extend(["", "## Catalog Topics", ""])
+    topics = category.get("topics", [])
+    if topics:
+        for topic in topics:
+            topic_title = str(topic.get("title", "Untitled"))
+            lines.append(
+                f"- {topic_title} — sources={int(topic.get('source_count', 0))}; "
+                f"mentions={int(topic.get('count', 0))}"
+            )
+    else:
+        lines.append("Нет отложенных тем.")
+
     return "\n".join(lines).rstrip() + "\n"
 
 

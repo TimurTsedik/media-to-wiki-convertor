@@ -12,6 +12,13 @@ from media_to_wiki_convertor.article_plan import (
     write_article_plan,
 )
 from media_to_wiki_convertor.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
+from media_to_wiki_convertor.catalog import (
+    build_catalog as build_catalog_payload,
+    count_catalog_categories,
+    read_article_plan_pages as read_catalog_article_pages,
+    read_deferred_topics,
+    write_catalog,
+)
 from media_to_wiki_convertor.chunks import chunk_transcript_record, count_existing_chunks
 from media_to_wiki_convertor.config import PipelineConfig, load_config
 from media_to_wiki_convertor.draft_articles import (
@@ -69,6 +76,7 @@ def ensure_raw_layout(raw_data: Path) -> None:
         "extracted_knowledge",
         "topic_index",
         "article_plan",
+        "catalog",
         "draft_articles",
         "summaries/chunks",
         "summaries/videos",
@@ -93,6 +101,7 @@ def print_status(config: PipelineConfig) -> None:
     say(f"knowledge:    {count_existing_knowledge(config.paths.raw_data)}")
     say(f"topic_pages:  {count_topic_index_pages(config.paths.raw_data)}")
     say(f"article_pages:{count_article_plan_pages(config.paths.raw_data)}")
+    say(f"catalog_categories:{count_catalog_categories(config.paths.raw_data)}")
     say(f"draft_articles:{count_draft_articles(config.paths.raw_data)}")
 
 
@@ -660,6 +669,37 @@ def build_article_plan(config: PipelineConfig, min_sources: int, max_pages: int 
     return 0
 
 
+def build_catalog(config: PipelineConfig) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    pages_path = config.paths.raw_data / "article_plan" / "pages.json"
+    pages = read_catalog_article_pages(config.paths.raw_data)
+    deferred = read_deferred_topics(config.paths.raw_data)
+
+    if not pages and not pages_path.exists():
+        say("No article plan pages found.")
+        say("Run `python3 -m media_to_wiki_convertor build-article-plan` first.")
+        return 0
+    if not pages and not deferred:
+        say("No article plan pages or deferred topics found.")
+        say("Run `python3 -m media_to_wiki_convertor build-article-plan` first.")
+        return 0
+
+    started_at = time.monotonic()
+    say(f"Catalog start: article_pages={len(pages)}, deferred_topics={len(deferred)}")
+    catalog = build_catalog_payload(pages, deferred)
+    output_dir = write_catalog(config.paths.raw_data, catalog)
+    elapsed = format_elapsed(time.monotonic() - started_at)
+    say(
+        "Catalog complete "
+        f"in {elapsed}: "
+        f"categories={catalog['summary']['categories']}, "
+        f"merge_suggestions={catalog['summary']['merge_suggestions']}, "
+        f"orphan_topics={catalog['summary']['orphan_topics']}"
+    )
+    say(f"Wrote catalog: {output_dir}")
+    return 0
+
+
 def draft_articles(
     config: PipelineConfig,
     model: str | None,
@@ -852,6 +892,7 @@ def pipeline_stages() -> dict[str, PipelineStage]:
             "build-article-plan",
             lambda config: build_article_plan(config, min_sources=1, max_pages=None),
         ),
+        "build-catalog": PipelineStage("build-catalog", lambda config: build_catalog(config)),
         "draft-articles": PipelineStage(
             "draft-articles",
             lambda config: draft_articles(config, None, None, False, False),
@@ -994,6 +1035,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Keep only the top N article pages by deterministic score.",
     )
+    subparsers.add_parser(
+        "build-catalog",
+        help="Build deterministic high-level catalog categories and merge suggestions.",
+    )
     draft_articles_parser = subparsers.add_parser(
         "draft-articles",
         help="Draft Markdown wiki articles from article source packs with the configured LLM provider.",
@@ -1094,6 +1139,8 @@ def main(argv: list[str] | None = None) -> int:
         return build_topic_index(config)
     if args.command == "build-article-plan":
         return build_article_plan(config, args.min_sources, args.max_pages)
+    if args.command == "build-catalog":
+        return build_catalog(config)
     if args.command == "draft-articles":
         return draft_articles(config, args.model, args.limit, args.force, args.dry_run)
     if args.command == "build-vault":

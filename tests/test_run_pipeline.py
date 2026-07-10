@@ -5,6 +5,11 @@ def test_select_stages_returns_full_pipeline_by_default() -> None:
     assert select_stages() == STAGE_NAMES
 
 
+def test_default_pipeline_builds_catalog_before_drafting() -> None:
+    assert STAGE_NAMES.index("build-article-plan") < STAGE_NAMES.index("build-catalog")
+    assert STAGE_NAMES.index("build-catalog") < STAGE_NAMES.index("draft-articles")
+
+
 def test_select_stages_can_start_from_stage() -> None:
     assert select_stages(from_stage="transcribe") == STAGE_NAMES[STAGE_NAMES.index("transcribe") :]
 
