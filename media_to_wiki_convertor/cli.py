@@ -850,7 +850,7 @@ def pipeline_stages() -> dict[str, PipelineStage]:
         "build-topic-index": PipelineStage("build-topic-index", lambda config: build_topic_index(config)),
         "build-article-plan": PipelineStage(
             "build-article-plan",
-            lambda config: build_article_plan(config, min_sources=2, max_pages=None),
+            lambda config: build_article_plan(config, min_sources=1, max_pages=None),
         ),
         "draft-articles": PipelineStage(
             "draft-articles",
@@ -982,8 +982,11 @@ def build_parser() -> argparse.ArgumentParser:
     article_plan_parser.add_argument(
         "--min-sources",
         type=int,
-        default=2,
-        help="Minimum distinct source chunks required for an article page. Default: 2.",
+        default=1,
+        help=(
+            "Minimum distinct source chunks required for an article page. "
+            "Default: 1 keeps rare topics; use 2+ for stricter filtering."
+        ),
     )
     article_plan_parser.add_argument(
         "--max-pages",

@@ -57,6 +57,19 @@ def test_build_article_plan_merges_aliases_and_filters_by_source_count() -> None
     assert plan["deferred"][0]["title"] == "Singleton Topic"
 
 
+def test_build_article_plan_includes_single_source_topics_when_min_sources_is_one() -> None:
+    pages = [
+        make_page("Singleton Topic", "c", "0001", source_count=1),
+    ]
+
+    plan = build_article_plan(pages, min_sources=1)
+
+    assert plan["summary"]["article_pages"] == 1
+    assert plan["summary"]["deferred_pages"] == 0
+    assert plan["pages"][0]["title"] == "Singleton Topic"
+    assert plan["pages"][0]["tier"] == "candidate"
+
+
 def test_read_topic_pages_loads_pages_json(tmp_path: Path) -> None:
     path = tmp_path / "topic_index" / "pages.json"
     path.parent.mkdir(parents=True)

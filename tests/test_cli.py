@@ -141,3 +141,9 @@ def test_llm_commands_describe_configured_provider_not_openai_only() -> None:
     assert "configured LLM provider" in help_text
     assert "with OpenAI." not in help_text
     assert "OpenAI model." not in help_text
+
+
+def test_build_article_plan_default_keeps_single_source_topics() -> None:
+    args = build_parser().parse_args(["build-article-plan"])
+
+    assert args.min_sources == 1

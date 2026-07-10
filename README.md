@@ -207,7 +207,7 @@ You can also run stages one by one.
 | `chunk-transcripts` | Splits transcript JSON into overlapping chunk files. |
 | `extract-knowledge` | Uses the configured LLM provider to extract topics, terms, practices, and article candidates. |
 | `build-topic-index` | Builds deterministic indexes from extracted knowledge. |
-| `build-article-plan` | Selects article pages and source packs. |
+| `build-article-plan` | Selects article pages and source packs. Defaults to keeping single-source topics; use `--min-sources 2` for stricter filtering. |
 | `draft-articles` | Uses the configured LLM provider to draft wiki article Markdown. |
 | `build-vault` | Builds the final Obsidian vault. |
 
