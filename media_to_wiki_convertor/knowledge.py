@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable
 from urllib import error, request
+from urllib.parse import quote, urlencode
 
 
 def build_system_prompt(output_language: str = "ru") -> str:
@@ -173,26 +174,36 @@ KNOWLEDGE_SCHEMA: dict[str, Any] = {
 Transport = Callable[[str, dict[str, str], dict[str, Any]], dict[str, Any]]
 
 
-def validate_openai_api_key(api_key: str, api_key_env: str = "OPENAI_API_KEY") -> str:
+def validate_api_key(
+    api_key: str,
+    api_key_env: str = "OPENAI_API_KEY",
+    provider: str = "LLM provider",
+) -> str:
     cleaned = api_key.strip()
     if not cleaned:
-        raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell or .env.")
+        raise RuntimeError(f"Missing API key for {provider}. Set {api_key_env} in your shell or .env.")
     if any(char.isspace() for char in cleaned):
-        raise RuntimeError(f"Invalid {api_key_env}: remove spaces or line breaks from the key.")
+        raise RuntimeError(
+            f"Invalid {api_key_env} for {provider}: remove spaces or line breaks from the key."
+        )
     try:
         cleaned.encode("ascii")
     except UnicodeEncodeError as exc:
         raise RuntimeError(
-            f"Invalid {api_key_env}: replace the placeholder with a real OpenAI API key."
+            f"Invalid {api_key_env} for {provider}: use an ASCII API key."
         ) from exc
 
     lowered = cleaned.lower()
     placeholder_markers = ("your-new-key", "your_new_key", "placeholder", "example")
     if any(marker in lowered for marker in placeholder_markers):
         raise RuntimeError(
-            f"Invalid {api_key_env}: replace the placeholder with a real OpenAI API key."
+            f"Invalid {api_key_env} for {provider}: replace the placeholder with a real API key."
         )
     return cleaned
+
+
+def validate_openai_api_key(api_key: str, api_key_env: str = "OPENAI_API_KEY") -> str:
+    return validate_api_key(api_key, api_key_env=api_key_env, provider="openai")
 
 
 @dataclass(frozen=True)
@@ -253,6 +264,118 @@ class OpenAIKnowledgeClient:
         return parse_response_output(response)
 
 
+class AnthropicKnowledgeClient:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        output_language: str = "ru",
+        endpoint: str = "https://api.anthropic.com/v1/messages",
+        transport: Transport | None = None,
+        max_tokens: int = 8192,
+    ) -> None:
+        self.api_key = validate_api_key(
+            api_key,
+            api_key_env="ANTHROPIC_API_KEY",
+            provider="anthropic",
+        )
+        self.model = model
+        self.output_language = output_language
+        self.endpoint = endpoint
+        self.transport = transport or default_transport
+        self.max_tokens = max_tokens
+
+    @classmethod
+    def from_env(
+        cls,
+        model: str,
+        output_language: str = "ru",
+        api_key_env: str = "ANTHROPIC_API_KEY",
+        endpoint: str = "https://api.anthropic.com/v1/messages",
+    ) -> "AnthropicKnowledgeClient":
+        api_key = os.environ.get(api_key_env)
+        if api_key is None:
+            raise RuntimeError(f"Missing API key for anthropic. Set {api_key_env} in your shell or .env.")
+        validate_api_key(api_key, api_key_env=api_key_env, provider="anthropic")
+        return cls(api_key=api_key, model=model, output_language=output_language, endpoint=endpoint)
+
+    def extract(self, chunk: dict[str, Any]) -> dict[str, Any]:
+        payload = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "system": build_system_prompt(self.output_language),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": build_extraction_prompt(
+                        chunk,
+                        output_language=self.output_language,
+                    ),
+                }
+            ],
+        }
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+        response = self.transport(self.endpoint, headers, payload)
+        return json.loads(parse_anthropic_text(response))
+
+
+class GeminiKnowledgeClient:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        output_language: str = "ru",
+        endpoint: str = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+        transport: Transport | None = None,
+    ) -> None:
+        self.api_key = validate_api_key(
+            api_key,
+            api_key_env="GEMINI_API_KEY",
+            provider="gemini",
+        )
+        self.model = model
+        self.output_language = output_language
+        self.endpoint = endpoint
+        self.transport = transport or default_transport
+
+    @classmethod
+    def from_env(
+        cls,
+        model: str,
+        output_language: str = "ru",
+        api_key_env: str = "GEMINI_API_KEY",
+        endpoint: str = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+    ) -> "GeminiKnowledgeClient":
+        api_key = os.environ.get(api_key_env)
+        if api_key is None:
+            raise RuntimeError(f"Missing API key for gemini. Set {api_key_env} in your shell or .env.")
+        validate_api_key(api_key, api_key_env=api_key_env, provider="gemini")
+        return cls(api_key=api_key, model=model, output_language=output_language, endpoint=endpoint)
+
+    def extract(self, chunk: dict[str, Any]) -> dict[str, Any]:
+        prompt = "\n\n".join(
+            [
+                build_system_prompt(self.output_language),
+                build_extraction_prompt(chunk, output_language=self.output_language),
+            ]
+        )
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
+            ]
+        }
+        headers = {"Content-Type": "application/json"}
+        response = self.transport(gemini_url(self.endpoint, self.model, self.api_key), headers, payload)
+        return json.loads(parse_gemini_text(response))
+
+
 def default_transport(url: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = request.Request(url, data=data, headers=headers, method="POST")
@@ -261,9 +384,9 @@ def default_transport(url: str, headers: dict[str, str], payload: dict[str, Any]
             return json.loads(response.read().decode("utf-8"))
     except error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"OpenAI API error {exc.code}: {body}") from exc
+        raise RuntimeError(f"LLM provider API error {exc.code}: {body}") from exc
     except ValueError as exc:
-        raise RuntimeError("Invalid OpenAI request. Check OPENAI_API_KEY formatting.") from exc
+        raise RuntimeError("Invalid LLM provider request. Check configured API key formatting.") from exc
 
 
 def parse_response_output(response: dict[str, Any]) -> dict[str, Any]:
@@ -276,6 +399,35 @@ def parse_response_output(response: dict[str, Any]) -> dict[str, Any]:
                 return json.loads(str(content["text"]))
 
     raise ValueError("OpenAI response did not contain output text.")
+
+
+def parse_anthropic_text(response: dict[str, Any]) -> str:
+    text = "".join(
+        str(content["text"])
+        for content in response.get("content", [])
+        if content.get("type") == "text" and "text" in content
+    )
+    if text:
+        return text
+    raise ValueError("Anthropic response did not contain text content.")
+
+
+def parse_gemini_text(response: dict[str, Any]) -> str:
+    parts: list[str] = []
+    for candidate in response.get("candidates", []):
+        content = candidate.get("content", {})
+        for part in content.get("parts", []):
+            if "text" in part:
+                parts.append(str(part["text"]))
+    if parts:
+        return "".join(parts)
+    raise ValueError("Gemini response did not contain text content.")
+
+
+def gemini_url(endpoint: str, model: str, api_key: str) -> str:
+    url = endpoint.replace("{model}", quote(model, safe=""))
+    separator = "&" if "?" in url else "?"
+    return f"{url}{separator}{urlencode({'key': api_key})}"
 
 
 def build_extraction_prompt(chunk: dict[str, Any], output_language: str = "ru") -> str:

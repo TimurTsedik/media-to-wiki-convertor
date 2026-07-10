@@ -61,6 +61,22 @@ class PipelineConfig:
     chunking: ChunkingConfig
 
 
+def default_llm_base_url(provider: str) -> str:
+    if provider == "anthropic":
+        return "https://api.anthropic.com/v1/messages"
+    if provider == "gemini":
+        return "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    return "https://api.openai.com/v1/responses"
+
+
+def default_llm_api_key_env(provider: str) -> str:
+    if provider == "anthropic":
+        return "ANTHROPIC_API_KEY"
+    if provider == "gemini":
+        return "GEMINI_API_KEY"
+    return "OPENAI_API_KEY"
+
+
 def load_config(config_path: Path | None = None) -> PipelineConfig:
     path = resolve_config_path(config_path)
     load_dotenv(path.parent / DOTENV_NAME)
@@ -72,6 +88,7 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
     llm = data.get("llm", {})
     wiki = data.get("wiki", {})
     chunking = data.get("chunking", {})
+    provider = str(llm.get("provider", "openai"))
     legacy_language = data.get("language")
     transcription_language = str(transcription.get("language", legacy_language or "ru"))
     wiki_language = str(wiki.get("language", legacy_language or transcription_language))
@@ -95,10 +112,10 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
             language=transcription_language,
         ),
         llm=LLMConfig(
-            provider=str(llm.get("provider", "openai")),
+            provider=provider,
             model=str(llm.get("model", "gpt-5.4-mini")),
-            base_url=str(llm.get("base_url", "https://api.openai.com/v1/responses")),
-            api_key_env=str(llm.get("api_key_env", "OPENAI_API_KEY")),
+            base_url=str(llm.get("base_url", default_llm_base_url(provider))),
+            api_key_env=str(llm.get("api_key_env", default_llm_api_key_env(provider))),
         ),
         wiki=WikiConfig(language=wiki_language),
         chunking=ChunkingConfig(

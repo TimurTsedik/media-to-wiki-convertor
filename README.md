@@ -17,7 +17,7 @@ It does the boring heavy lifting:
 - transcribes locally with Whisper on Apple Silicon
 - imports existing JSON or TXT transcripts
 - splits transcripts into overlapping chunks
-- extracts structured knowledge with an OpenAI Responses API client
+- extracts structured knowledge with the configured LLM provider
 - drafts wiki articles
 - builds an Obsidian vault with links back to chunks and transcripts
 
@@ -48,14 +48,14 @@ This project has already absorbed its first round of real user feedback:
 - Untimed text transcripts: plain `.txt` imports are chunked by word windows with overlap, without inventing fake timestamps.
 - Separate language settings: `[transcription].language` controls speech/transcript language, while `[wiki].language` controls extracted knowledge and drafted article language.
 - Run telemetry: long-running stages write support-friendly JSONL events to `raw-data/logs/run-events.jsonl` with start, finish, elapsed time, status, and errors.
-- LLM provider configuration: keep the default OpenAI Responses API client, or point `provider = "openai-compatible"` at a compatible endpoint with a custom API key env var.
+- LLM provider configuration: choose OpenAI, Anthropic, Gemini, or an OpenAI-compatible endpoint with provider-specific API key env vars.
 
 ## Requirements
 
 - Python 3.11+
 - `ffmpeg`
 - macOS Apple Silicon for the default `mlx-whisper` transcription engine, unless you import transcripts
-- OpenAI API key, or a Responses API-compatible provider key, for knowledge extraction and article drafting
+- API key for the configured LLM provider, for knowledge extraction and article drafting
 
 Install `ffmpeg` on macOS:
 
@@ -90,10 +90,12 @@ cd my-training
 cp .env.example .env
 ```
 
-Add your OpenAI API key to `.env`:
+Add the API key for your configured LLM provider to `.env`:
 
 ```text
 OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
 ```
 
 The default LLM configuration uses OpenAI:
@@ -106,7 +108,29 @@ base_url = "https://api.openai.com/v1/responses"
 api_key_env = "OPENAI_API_KEY"
 ```
 
-For an OpenAI Responses API-compatible endpoint, set `provider = "openai-compatible"` and point `base_url` and `api_key_env` at that service:
+Supported providers are `openai`, `openai-compatible`, `anthropic`, and `gemini`.
+
+For Anthropic:
+
+```toml
+[llm]
+provider = "anthropic"
+model = "claude-3-5-sonnet-latest"
+base_url = "https://api.anthropic.com/v1/messages"
+api_key_env = "ANTHROPIC_API_KEY"
+```
+
+For Gemini, keep `{model}` in the URL so the configured model can be inserted:
+
+```toml
+[llm]
+provider = "gemini"
+model = "gemini-1.5-pro"
+base_url = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+api_key_env = "GEMINI_API_KEY"
+```
+
+For an OpenAI-compatible endpoint, point `base_url` and `api_key_env` at that service:
 
 ```toml
 [llm]
@@ -254,7 +278,7 @@ The vault contains:
 Expected result:
 
 ```text
-87 passed
+102 passed
 ```
 
 ## Notes

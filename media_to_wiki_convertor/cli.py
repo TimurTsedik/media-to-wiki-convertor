@@ -942,12 +942,12 @@ def build_parser() -> argparse.ArgumentParser:
     add_chunk_arguments(chunk_alias_parser)
     knowledge_parser = subparsers.add_parser(
         "extract-knowledge",
-        help="Extract structured knowledge JSON from transcript chunks with OpenAI.",
+        help="Extract structured knowledge JSON from transcript chunks with the configured LLM provider.",
     )
     knowledge_parser.add_argument(
         "--model",
         default=None,
-        help="OpenAI model. Defaults to [llm].model in config.",
+        help="LLM model. Defaults to [llm].model in config.",
     )
     knowledge_parser.add_argument(
         "--limit",
@@ -993,12 +993,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     draft_articles_parser = subparsers.add_parser(
         "draft-articles",
-        help="Draft Markdown wiki articles from article source packs with OpenAI.",
+        help="Draft Markdown wiki articles from article source packs with the configured LLM provider.",
     )
     draft_articles_parser.add_argument(
         "--model",
         default=None,
-        help="OpenAI model. Defaults to [llm].model in config.",
+        help="LLM model. Defaults to [llm].model in config.",
     )
     draft_articles_parser.add_argument(
         "--limit",

@@ -113,7 +113,7 @@ def test_extract_knowledge_rejects_unsupported_llm_provider_before_processing(
         paths=config.paths,
         discover=config.discover,
         transcription=config.transcription,
-        llm=LLMConfig(provider="anthropic", model="claude-test"),
+        llm=LLMConfig(provider="unknown-provider", model="model-test"),
         wiki=config.wiki,
         chunking=config.chunking,
     )
@@ -131,5 +131,13 @@ def test_extract_knowledge_rejects_unsupported_llm_provider_before_processing(
 
     assert cli.extract_knowledge(config, None, None, None, False, False) == 1
     output = capsys.readouterr().out
-    assert "Unsupported LLM provider: anthropic" in output
+    assert "Unsupported LLM provider: unknown-provider" in output
     assert "openai-compatible" in output
+
+
+def test_llm_commands_describe_configured_provider_not_openai_only() -> None:
+    help_text = build_parser().format_help()
+
+    assert "configured LLM provider" in help_text
+    assert "with OpenAI." not in help_text
+    assert "OpenAI model." not in help_text

@@ -9,6 +9,7 @@ __pycache__/
 .mypy_cache/
 .coverage
 htmlcov/
+docs/
 
 .venv/
 venv/

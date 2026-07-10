@@ -19,10 +19,29 @@ model = "mlx-community/whisper-medium"
 language = "ru"
 
 [llm]
+# Supported providers: openai, openai-compatible, anthropic, gemini.
 provider = "openai"
 model = "gpt-5.4-mini"
 base_url = "https://api.openai.com/v1/responses"
 api_key_env = "OPENAI_API_KEY"
+
+# Anthropic example:
+# provider = "anthropic"
+# model = "claude-3-5-sonnet-latest"
+# base_url = "https://api.anthropic.com/v1/messages"
+# api_key_env = "ANTHROPIC_API_KEY"
+#
+# Gemini example:
+# provider = "gemini"
+# model = "gemini-1.5-pro"
+# base_url = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# api_key_env = "GEMINI_API_KEY"
+#
+# OpenAI-compatible example:
+# provider = "openai-compatible"
+# model = "provider-model-name"
+# base_url = "https://example.com/v1/responses"
+# api_key_env = "COMPATIBLE_LLM_API_KEY"
 
 [wiki]
 language = "ru"
@@ -32,8 +51,10 @@ chunk_minutes = 10
 overlap_seconds = 120
 """
 
-DEFAULT_ENV_EXAMPLE = """# Copy this file to .env and paste your real key.
+DEFAULT_ENV_EXAMPLE = """# Copy this file to .env and paste the key for your configured LLM provider.
 OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
 """
 
 DEFAULT_GITIGNORE = """.env

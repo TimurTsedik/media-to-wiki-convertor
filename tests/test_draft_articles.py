@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 
 from media_to_wiki_convertor.draft_articles import (
+    AnthropicArticleClient,
+    GeminiArticleClient,
     OpenAIArticleClient,
     build_article_prompt,
     count_draft_articles,
@@ -120,6 +122,87 @@ def test_openai_article_client_rejects_placeholder_api_key() -> None:
         assert "OPENAI_API_KEY" in str(exc)
     else:
         raise AssertionError("placeholder OPENAI_API_KEY was accepted")
+
+
+def test_anthropic_and_gemini_article_clients_name_provider_api_key_envs() -> None:
+    cases = [
+        (AnthropicArticleClient, "ANTHROPIC_API_KEY", "anthropic"),
+        (GeminiArticleClient, "GEMINI_API_KEY", "gemini"),
+    ]
+    for client_cls, api_key_env, provider in cases:
+        try:
+            client_cls(api_key="placeholder-api-key", model="model-test")
+        except RuntimeError as exc:
+            message = str(exc)
+            assert api_key_env in message
+            assert provider in message
+            assert "OpenAI API key" not in message
+        else:
+            raise AssertionError(f"placeholder {api_key_env} was accepted")
+
+
+def test_anthropic_article_client_builds_messages_request_and_returns_markdown() -> None:
+    requests: list[dict] = []
+
+    def fake_transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        requests.append({"url": url, "headers": headers, "payload": payload})
+        return {"content": [{"type": "text", "text": "# Daily / Standup\n\nТекст."}]}
+
+    client = AnthropicArticleClient(
+        api_key="anthropic-secret",
+        model="claude-test",
+        output_language="en",
+        transport=fake_transport,
+    )
+
+    markdown = client.draft(sample_source_pack(), known_titles=["Daily / Standup"])
+
+    assert markdown == "# Daily / Standup\n\nТекст.\n"
+    request = requests[0]
+    assert request["url"] == "https://api.anthropic.com/v1/messages"
+    assert request["headers"] == {
+        "x-api-key": "anthropic-secret",
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+    assert request["payload"]["model"] == "claude-test"
+    assert request["payload"]["max_tokens"] > 0
+    assert "языке: en" in request["payload"]["system"]
+    assert request["payload"]["messages"][0]["role"] == "user"
+    assert "Пиши статью на языке: en" in request["payload"]["messages"][0]["content"]
+
+
+def test_gemini_article_client_builds_generate_content_request_and_returns_markdown() -> None:
+    requests: list[dict] = []
+
+    def fake_transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        requests.append({"url": url, "headers": headers, "payload": payload})
+        return {
+            "candidates": [
+                {"content": {"parts": [{"text": "# Daily / Standup\n\nТекст."}]}}
+            ]
+        }
+
+    client = GeminiArticleClient(
+        api_key="gemini-secret",
+        model="gemini-test",
+        output_language="en",
+        transport=fake_transport,
+    )
+
+    markdown = client.draft(sample_source_pack(), known_titles=["Daily / Standup"])
+
+    assert markdown == "# Daily / Standup\n\nТекст.\n"
+    request = requests[0]
+    assert request["url"] == (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-test:generateContent"
+        "?key=gemini-secret"
+    )
+    assert request["headers"] == {"Content-Type": "application/json"}
+    assert request["payload"]["contents"][0]["role"] == "user"
+    text = request["payload"]["contents"][0]["parts"][0]["text"]
+    assert "языке: en" in text
+    assert "Пиши статью на языке: en" in text
 
 
 def test_read_article_pages_loads_pages_json(tmp_path: Path) -> None:

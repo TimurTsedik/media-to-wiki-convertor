@@ -15,7 +15,10 @@ def test_init_project_creates_generic_project_layout(tmp_path: Path) -> None:
     assert (target / "raw-data").is_dir()
     assert (target / "vault").is_dir()
     assert (target / "README.local.md").exists()
-    assert "OPENAI_API_KEY=" in (target / ".env.example").read_text(encoding="utf-8")
+    env_example = (target / ".env.example").read_text(encoding="utf-8")
+    assert "OPENAI_API_KEY=" in env_example
+    assert "ANTHROPIC_API_KEY=" in env_example
+    assert "GEMINI_API_KEY=" in env_example
     assert "raw-data/" in (target / ".gitignore").read_text(encoding="utf-8")
     assert "vault/" in (target / ".gitignore").read_text(encoding="utf-8")
 

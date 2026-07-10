@@ -68,6 +68,78 @@ vault = "/vault"
     assert config.llm.api_key_env == "OPENAI_API_KEY"
 
 
+def test_load_config_defaults_anthropic_llm_endpoint_and_api_key_env(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[paths]
+video_source = "/video"
+raw_data = "/raw"
+vault = "/vault"
+
+[llm]
+provider = "anthropic"
+model = "claude-test"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.llm.provider == "anthropic"
+    assert config.llm.base_url == "https://api.anthropic.com/v1/messages"
+    assert config.llm.api_key_env == "ANTHROPIC_API_KEY"
+
+
+def test_load_config_preserves_explicit_anthropic_openai_api_key_env(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[paths]
+video_source = "/video"
+raw_data = "/raw"
+vault = "/vault"
+
+[llm]
+provider = "anthropic"
+model = "claude-test"
+api_key_env = "OPENAI_API_KEY"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.llm.provider == "anthropic"
+    assert config.llm.api_key_env == "OPENAI_API_KEY"
+
+
+def test_load_config_defaults_gemini_llm_endpoint_and_api_key_env(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[paths]
+video_source = "/video"
+raw_data = "/raw"
+vault = "/vault"
+
+[llm]
+provider = "gemini"
+model = "gemini-test"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.llm.provider == "gemini"
+    assert (
+        config.llm.base_url
+        == "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    )
+    assert config.llm.api_key_env == "GEMINI_API_KEY"
+
+
 def test_load_config_defaults_wiki_language_to_transcription_language(tmp_path: Path) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text(

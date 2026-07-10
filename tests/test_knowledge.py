@@ -1,14 +1,20 @@
 import json
 from pathlib import Path
+from urllib import error
+from io import BytesIO
 
 from media_to_wiki_convertor.knowledge import (
+    AnthropicKnowledgeClient,
+    GeminiKnowledgeClient,
     KNOWLEDGE_SCHEMA,
     OpenAIKnowledgeClient,
     build_extraction_prompt,
     chunk_payloads,
     count_existing_knowledge,
+    default_transport,
     knowledge_output_path,
     select_chunk_payloads,
+    validate_api_key,
 )
 
 
@@ -116,6 +122,141 @@ def test_openai_client_rejects_placeholder_api_key() -> None:
         assert "OPENAI_API_KEY" in str(exc)
     else:
         raise AssertionError("placeholder OPENAI_API_KEY was accepted")
+
+
+def test_validate_api_key_error_is_provider_generic() -> None:
+    try:
+        validate_api_key("пример-key", api_key_env="GEMINI_API_KEY", provider="gemini")
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "GEMINI_API_KEY" in message
+        assert "gemini" in message
+        assert "OpenAI API key" not in message
+    else:
+        raise AssertionError("non-ASCII Gemini API key was accepted")
+
+
+def test_default_transport_error_messages_are_provider_generic(monkeypatch) -> None:
+    def raise_http_error(*args, **kwargs):
+        raise error.HTTPError(
+            url="https://api.example.test",
+            code=401,
+            msg="Unauthorized",
+            hdrs={},
+            fp=BytesIO(b'{"error":"bad key"}'),
+        )
+
+    monkeypatch.setattr("media_to_wiki_convertor.knowledge.request.urlopen", raise_http_error)
+
+    try:
+        default_transport("https://api.example.test", {}, {})
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "LLM provider API error 401" in message
+        assert "OpenAI" not in message
+        assert "OPENAI_API_KEY" not in message
+    else:
+        raise AssertionError("HTTPError was not converted to RuntimeError")
+
+
+def test_default_transport_value_errors_are_provider_generic(monkeypatch) -> None:
+    def raise_value_error(*args, **kwargs):
+        raise ValueError("bad request")
+
+    monkeypatch.setattr("media_to_wiki_convertor.knowledge.request.urlopen", raise_value_error)
+
+    try:
+        default_transport("https://api.example.test", {}, {})
+    except RuntimeError as exc:
+        message = str(exc)
+        assert "Invalid LLM provider request" in message
+        assert "OpenAI" not in message
+        assert "OPENAI_API_KEY" not in message
+    else:
+        raise AssertionError("ValueError was not converted to RuntimeError")
+
+
+def test_anthropic_and_gemini_knowledge_clients_name_provider_api_key_envs() -> None:
+    cases = [
+        (AnthropicKnowledgeClient, "ANTHROPIC_API_KEY", "anthropic"),
+        (GeminiKnowledgeClient, "GEMINI_API_KEY", "gemini"),
+    ]
+    for client_cls, api_key_env, provider in cases:
+        try:
+            client_cls(api_key="placeholder-api-key", model="model-test")
+        except RuntimeError as exc:
+            message = str(exc)
+            assert api_key_env in message
+            assert provider in message
+            assert "OpenAI API key" not in message
+        else:
+            raise AssertionError(f"placeholder {api_key_env} was accepted")
+
+
+def test_anthropic_knowledge_client_builds_messages_request_and_parses_json() -> None:
+    requests: list[dict] = []
+
+    def fake_transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        requests.append({"url": url, "headers": headers, "payload": payload})
+        return {"content": [{"type": "text", "text": json.dumps({"ok": True})}]}
+
+    client = AnthropicKnowledgeClient(
+        api_key="anthropic-secret",
+        model="claude-test",
+        output_language="en",
+        transport=fake_transport,
+    )
+
+    result = client.extract(sample_chunk())
+
+    assert result == {"ok": True}
+    request = requests[0]
+    assert request["url"] == "https://api.anthropic.com/v1/messages"
+    assert request["headers"] == {
+        "x-api-key": "anthropic-secret",
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+    }
+    assert request["payload"]["model"] == "claude-test"
+    assert request["payload"]["max_tokens"] > 0
+    assert "языке: en" in request["payload"]["system"]
+    assert request["payload"]["messages"][0]["role"] == "user"
+    assert "output_language: write extracted knowledge in en" in request["payload"]["messages"][0][
+        "content"
+    ]
+
+
+def test_gemini_knowledge_client_builds_generate_content_request_and_parses_json() -> None:
+    requests: list[dict] = []
+
+    def fake_transport(url: str, headers: dict[str, str], payload: dict) -> dict:
+        requests.append({"url": url, "headers": headers, "payload": payload})
+        return {
+            "candidates": [
+                {"content": {"parts": [{"text": json.dumps({"ok": True})}]}}
+            ]
+        }
+
+    client = GeminiKnowledgeClient(
+        api_key="gemini-secret",
+        model="gemini-test",
+        output_language="en",
+        transport=fake_transport,
+    )
+
+    result = client.extract(sample_chunk())
+
+    assert result == {"ok": True}
+    request = requests[0]
+    assert request["url"] == (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-test:generateContent"
+        "?key=gemini-secret"
+    )
+    assert request["headers"] == {"Content-Type": "application/json"}
+    assert request["payload"]["contents"][0]["role"] == "user"
+    text = request["payload"]["contents"][0]["parts"][0]["text"]
+    assert "языке: en" in text
+    assert "output_language: write extracted knowledge in en" in text
 
 
 def test_chunk_payloads_iterates_chunk_json_files(tmp_path: Path) -> None:
