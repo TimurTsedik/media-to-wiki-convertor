@@ -211,9 +211,18 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
     markdown = (
         "# AWS\n\n"
         "Источники: [f323d805b520:0011], source:307869628eba#0004, "
-        "14c6fbca1e96#0002, overqualified#0001, "
-        "[missingvideo:0001], source:missingvideo#0002.\n"
-        "См. [[AWS Bedrock]] и [[Sources/Chunks/f323d805b520/0011|готовая ссылка]].\n"
+        "14c6fbca1e96#0002, overqualified#0001, `video_id:18797da45247#0005`, "
+        "video:903e979351ee#0004, course-source-pack:7d1f2472d5ed#0007, "
+        "[18797da45247#0002], [missingvideo:0001], source:missingvideo#0002.\n"
+        "Markdown: [chunk 0002](source://8dac023c7ead#0002), "
+        "[3eef9508e333#0003](https://source/3eef9508e333#0003), "
+        "[dc51bf126b22/0008](https://example.com/dc51bf126b22#0008), "
+        "[video_903e979351ee#0003](video_903e979351ee#0003), "
+        "[chunk 0010](source://video/9eb1cccd1e24#t=01:11:56-01:22:04).\n"
+        "Chunk words: video_id:9e4e5e61cab0#chunk:0011 and video:9e4e5e61cab0#chunk-0004.\n"
+        "Backtick wrappers: [`8dac023c7ead#0005`] and [`492d35edaba6#0007`](#).\n"
+        "См. [[AWS Bedrock]] и [[Sources/Chunks/f323d805b520/0011|готовая ссылка]] "
+        "и [[Sources/Chunks/8dac023c7ead/0002|8dac023c7ead/0002]].\n"
     )
 
     rewritten = rewrite_course_material_links(
@@ -223,6 +232,19 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
         source_alias_targets={
             ("14c6fbca1e96", "0002"): ("14c6fbca1e96", "0002"),
             ("overqualified", "0001"): ("14c6fbca1e96", "0003"),
+            ("18797da45247", "0005"): ("18797da45247", "0005"),
+            ("18797da45247", "0002"): ("18797da45247", "0002"),
+            ("903e979351ee", "0004"): ("903e979351ee", "0004"),
+            ("7d1f2472d5ed", "0007"): ("7d1f2472d5ed", "0007"),
+            ("8dac023c7ead", "0002"): ("8dac023c7ead", "0002"),
+            ("3eef9508e333", "0003"): ("3eef9508e333", "0003"),
+            ("dc51bf126b22", "0008"): ("dc51bf126b22", "0008"),
+            ("903e979351ee", "0003"): ("903e979351ee", "0003"),
+            ("9eb1cccd1e24", "0010"): ("9eb1cccd1e24", "0010"),
+            ("9e4e5e61cab0", "0011"): ("9e4e5e61cab0", "0011"),
+            ("9e4e5e61cab0", "0004"): ("9e4e5e61cab0", "0004"),
+            ("8dac023c7ead", "0005"): ("8dac023c7ead", "0005"),
+            ("492d35edaba6", "0007"): ("492d35edaba6", "0007"),
         },
     )
 
@@ -230,6 +252,22 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
     assert "[[Sources/Chunks/307869628eba/0004|307869628eba/0004]]" in rewritten
     assert "[[Sources/Chunks/14c6fbca1e96/0002|14c6fbca1e96/0002]]" in rewritten
     assert "[[Sources/Chunks/14c6fbca1e96/0003|14c6fbca1e96/0003]]" in rewritten
+    assert "[[Sources/Chunks/18797da45247/0005|18797da45247/0005]]" in rewritten
+    assert "[[Sources/Chunks/18797da45247/0002|18797da45247/0002]]" in rewritten
+    assert "[[Sources/Chunks/903e979351ee/0004|903e979351ee/0004]]" in rewritten
+    assert "[[Sources/Chunks/7d1f2472d5ed/0007|7d1f2472d5ed/0007]]" in rewritten
+    assert "[[Sources/Chunks/8dac023c7ead/0002|8dac023c7ead/0002]]" in rewritten
+    assert "[[Sources/Chunks/3eef9508e333/0003|3eef9508e333/0003]]" in rewritten
+    assert "[[Sources/Chunks/dc51bf126b22/0008|dc51bf126b22/0008]]" in rewritten
+    assert "[[Sources/Chunks/9eb1cccd1e24/0010|9eb1cccd1e24/0010]]" in rewritten
+    assert "[[Sources/Chunks/9e4e5e61cab0/0011|9e4e5e61cab0/0011]]" in rewritten
+    assert "[[Sources/Chunks/9e4e5e61cab0/0004|9e4e5e61cab0/0004]]" in rewritten
+    assert "[[Sources/Chunks/8dac023c7ead/0005|8dac023c7ead/0005]]" in rewritten
+    assert "[[Sources/Chunks/492d35edaba6/0007|492d35edaba6/0007]]" in rewritten
+    assert "[[[Sources/" not in rewritten
+    assert "`[[Sources/" not in rewritten
+    assert "](https://source/" not in rewritten
+    assert "](source://" not in rewritten
     assert "[missingvideo:0001]" in rewritten
     assert "source:missingvideo#0002" in rewritten
     assert "[[Wiki/AWS Bedrock|AWS Bedrock]]" in rewritten

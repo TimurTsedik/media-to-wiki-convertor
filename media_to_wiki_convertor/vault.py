@@ -14,8 +14,17 @@ from media_to_wiki_convertor.manifest import VideoRecord, read_manifest
 
 MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts", "Course Materials")
 LINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
+BACKTICK_SOURCE_REF_PATTERN = re.compile(r"`([^`\n]+)`")
+MARKDOWN_SOURCE_LINK_PATTERN = re.compile(r"\[([^\]\n]+)\]\(([^)\n]+)\)")
+BRACKETED_BACKTICK_SOURCE_REF_PATTERN = re.compile(r"\[`([^`\n]+)`\]")
+BRACKETED_PREFIXED_SOURCE_REF_PATTERN = re.compile(
+    r"\[((?:source|video|video_id|course-source-pack):[A-Za-z0-9_-]+[#/:][A-Za-z0-9_-]+)\]"
+)
+BRACKETED_BARE_SOURCE_REF_PATTERN = re.compile(r"\[([A-Za-z0-9_-]+[#/:][A-Za-z0-9_-]+)\]")
 BRACKETED_SOURCE_REF_PATTERN = re.compile(r"\[([A-Za-z0-9_-]+):([A-Za-z0-9_-]+)\]")
-PREFIXED_SOURCE_REF_PATTERN = re.compile(r"\bsource:([A-Za-z0-9_-]+)[#/:]([A-Za-z0-9_-]+)")
+PREFIXED_SOURCE_REF_PATTERN = re.compile(
+    r"\b(?:source|video|video_id|course-source-pack):([A-Za-z0-9_-]+)[#/:](?:chunk[\s:-]*)?([A-Za-z0-9_-]+)"
+)
 BARE_SOURCE_REF_PATTERN = re.compile(r"(?<![:/])\b([A-Za-z0-9_-]+)#([A-Za-z0-9_-]+)\b")
 INVALID_FILENAME_CHARS = set(':\\?#^[]|')
 
@@ -518,13 +527,67 @@ def rewrite_course_material_source_refs(
     source_targets: set[tuple[str, str]],
     source_alias_targets: dict[tuple[str, str], tuple[str, str]],
 ) -> str:
+    wikilink_placeholders: dict[str, str] = {}
+
+    def protect_wikilink(match: re.Match[str]) -> str:
+        key = f"@@COURSE_WIKILINK_{len(wikilink_placeholders)}@@"
+        wikilink_placeholders[key] = match.group(0)
+        return key
+
+    def restore_wikilinks(value: str) -> str:
+        for key, wikilink in wikilink_placeholders.items():
+            value = value.replace(key, wikilink)
+        return value
+
     def source_link(video_id: str, chunk_id: str) -> str | None:
+        video_id = canonical_source_video_id(video_id)
         source_target = (video_id, chunk_id)
         if source_target in source_alias_targets:
             video_id, chunk_id = source_alias_targets[source_target]
         elif source_target not in source_targets:
             return None
         return f"[[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]"
+
+    def replace_backticked(match: re.Match[str]) -> str:
+        source_ref = extract_course_source_ref(match.group(1))
+        if not source_ref:
+            return match.group(0)
+        video_id, chunk_id = source_ref
+        return source_link(video_id, chunk_id) or match.group(0)
+
+    def replace_markdown_link(match: re.Match[str]) -> str:
+        label = match.group(1)
+        url = match.group(2)
+        source_ref = (
+            extract_course_markdown_source_ref(label, url)
+            or extract_course_source_ref(url)
+            or extract_course_source_ref(label)
+        )
+        if not source_ref:
+            return match.group(0)
+        video_id, chunk_id = source_ref
+        return source_link(video_id, chunk_id) or match.group(0)
+
+    def replace_bracketed_backtick(match: re.Match[str]) -> str:
+        source_ref = extract_course_source_ref(match.group(1))
+        if not source_ref:
+            return match.group(0)
+        video_id, chunk_id = source_ref
+        return source_link(video_id, chunk_id) or match.group(0)
+
+    def replace_bracketed_prefixed(match: re.Match[str]) -> str:
+        source_ref = extract_course_source_ref(match.group(1))
+        if not source_ref:
+            return match.group(0)
+        video_id, chunk_id = source_ref
+        return source_link(video_id, chunk_id) or match.group(0)
+
+    def replace_bracketed_bare(match: re.Match[str]) -> str:
+        source_ref = extract_course_source_ref(match.group(1))
+        if not source_ref:
+            return match.group(0)
+        video_id, chunk_id = source_ref
+        return source_link(video_id, chunk_id) or match.group(0)
 
     def replace_bracketed(match: re.Match[str]) -> str:
         video_id = match.group(1)
@@ -541,9 +604,57 @@ def rewrite_course_material_source_refs(
         chunk_id = match.group(2)
         return source_link(video_id, chunk_id) or match.group(0)
 
-    rewritten = BRACKETED_SOURCE_REF_PATTERN.sub(replace_bracketed, markdown)
+    rewritten = LINK_PATTERN.sub(protect_wikilink, markdown)
+    rewritten = MARKDOWN_SOURCE_LINK_PATTERN.sub(replace_markdown_link, rewritten)
+    rewritten = BRACKETED_BACKTICK_SOURCE_REF_PATTERN.sub(replace_bracketed_backtick, rewritten)
+    rewritten = BACKTICK_SOURCE_REF_PATTERN.sub(replace_backticked, rewritten)
+    rewritten = BRACKETED_PREFIXED_SOURCE_REF_PATTERN.sub(replace_bracketed_prefixed, rewritten)
+    rewritten = BRACKETED_BARE_SOURCE_REF_PATTERN.sub(replace_bracketed_bare, rewritten)
+    rewritten = BRACKETED_SOURCE_REF_PATTERN.sub(replace_bracketed, rewritten)
     rewritten = PREFIXED_SOURCE_REF_PATTERN.sub(replace_prefixed, rewritten)
-    return BARE_SOURCE_REF_PATTERN.sub(replace_bare, rewritten)
+    rewritten = BARE_SOURCE_REF_PATTERN.sub(replace_bare, rewritten)
+    return restore_wikilinks(rewritten)
+
+
+def extract_course_markdown_source_ref(label: str, url: str) -> tuple[str, str] | None:
+    source_video_url = re.search(r"source://video/([A-Za-z0-9_-]+)#", url)
+    chunk_id = extract_chunk_marker(label) or extract_chunk_marker(url)
+    if source_video_url and chunk_id:
+        return canonical_source_video_id(source_video_url.group(1)), chunk_id
+    return None
+
+
+def extract_course_source_ref(value: str) -> tuple[str, str] | None:
+    source_url = re.search(
+        r"(?:source://|https?://[^/\s)]+/)([A-Za-z0-9_-]+)#([A-Za-z0-9_-]+)",
+        value,
+    )
+    if source_url:
+        return canonical_source_video_id(source_url.group(1)), source_url.group(2)
+
+    prefixed = re.search(
+        r"\b(?:source|video|video_id|course-source-pack):([A-Za-z0-9_-]+)[#/:](?:chunk[\s:-]*)?([A-Za-z0-9_-]+)",
+        value,
+    )
+    if prefixed:
+        return canonical_source_video_id(prefixed.group(1)), prefixed.group(2)
+
+    bare = re.search(r"\b([A-Za-z0-9_-]+)[#/:]([A-Za-z0-9_-]+)\b", value)
+    if bare:
+        return canonical_source_video_id(bare.group(1)), bare.group(2)
+
+    return None
+
+
+def extract_chunk_marker(value: str) -> str | None:
+    match = re.search(r"\bchunk[\s:-]*(\d{4})\b", value)
+    if match:
+        return match.group(1)
+    return None
+
+
+def canonical_source_video_id(video_id: str) -> str:
+    return video_id.removeprefix("video_")
 
 
 def course_chapter_source_targets(chapter: dict[str, Any]) -> set[tuple[str, str]]:
