@@ -355,15 +355,19 @@ def extract_knowledge(
     selected_model = model or config.llm.model
     say(
         "Knowledge extraction settings: "
-        f"model={selected_model}, chunks={len(payloads)}, force={force}, dry_run={dry_run}"
+        f"model={selected_model}, output_language={config.wiki.language}, "
+        f"chunks={len(payloads)}, force={force}, dry_run={dry_run}"
     )
 
     if dry_run:
-        say(build_extraction_prompt(payloads[0]))
+        say(build_extraction_prompt(payloads[0], output_language=config.wiki.language))
         return 0
 
     try:
-        client = OpenAIKnowledgeClient.from_env(model=selected_model)
+        client = OpenAIKnowledgeClient.from_env(
+            model=selected_model,
+            output_language=config.wiki.language,
+        )
     except RuntimeError as exc:
         say(str(exc))
         return 1
@@ -490,15 +494,19 @@ def draft_articles(
     known_titles = [str(page["title"]) for page in pages]
     say(
         "Draft articles settings: "
-        f"model={selected_model}, articles={len(source_packs)}, force={force}, dry_run={dry_run}"
+        f"model={selected_model}, output_language={config.wiki.language}, "
+        f"articles={len(source_packs)}, force={force}, dry_run={dry_run}"
     )
 
     if dry_run:
-        say(build_article_prompt(source_packs[0], known_titles))
+        say(build_article_prompt(source_packs[0], known_titles, output_language=config.wiki.language))
         return 0
 
     try:
-        client = OpenAIArticleClient.from_env(model=selected_model)
+        client = OpenAIArticleClient.from_env(
+            model=selected_model,
+            output_language=config.wiki.language,
+        )
     except RuntimeError as exc:
         say(str(exc))
         return 1

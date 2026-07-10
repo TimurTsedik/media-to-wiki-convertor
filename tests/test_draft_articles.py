@@ -56,9 +56,11 @@ def test_build_article_prompt_is_source_bound_and_names_known_links() -> None:
     prompt = build_article_prompt(
         sample_source_pack(),
         known_titles=["Daily / Standup", "Sprint planning"],
+        output_language="en",
     )
 
     assert "Используй только SOURCE_PACK" in prompt
+    assert "Пиши статью на языке: en" in prompt
     assert "Daily / Standup" in prompt
     assert "KNOWN_ARTICLE_TITLES" in prompt
     assert "[[Sprint planning]]" in prompt
@@ -76,6 +78,7 @@ def test_openai_article_client_builds_responses_request_and_returns_markdown() -
     client = OpenAIArticleClient(
         api_key="secret",
         model="gpt-5.4-mini",
+        output_language="en",
         transport=fake_transport,
     )
 
@@ -87,7 +90,9 @@ def test_openai_article_client_builds_responses_request_and_returns_markdown() -
     assert request["headers"]["Authorization"] == "Bearer secret"
     assert request["payload"]["model"] == "gpt-5.4-mini"
     assert request["payload"]["input"][0]["role"] == "system"
+    assert "языке: en" in request["payload"]["input"][0]["content"]
     assert request["payload"]["input"][1]["role"] == "user"
+    assert "Пиши статью на языке: en" in request["payload"]["input"][1]["content"]
 
 
 def test_openai_article_client_strips_api_key_whitespace() -> None:

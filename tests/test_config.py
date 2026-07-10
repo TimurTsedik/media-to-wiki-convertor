@@ -19,6 +19,9 @@ max_depth = 3
 
 [llm]
 model = "gpt-5.4-mini"
+
+[wiki]
+language = "en"
 """.strip(),
         encoding="utf-8",
     )
@@ -31,6 +34,49 @@ model = "gpt-5.4-mini"
     assert config.discover.video_extensions == (".mp4", ".mov")
     assert config.discover.max_depth == 3
     assert config.llm.model == "gpt-5.4-mini"
+    assert config.transcription.language == "ru"
+    assert config.wiki.language == "en"
+
+
+def test_load_config_supports_legacy_top_level_language(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+language = "en"
+
+[paths]
+video_source = "/video"
+raw_data = "/raw"
+vault = "/vault"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.transcription.language == "en"
+    assert config.wiki.language == "en"
+
+
+def test_load_config_defaults_wiki_language_to_transcription_language(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[paths]
+video_source = "/video"
+raw_data = "/raw"
+vault = "/vault"
+
+[transcription]
+language = "en"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.transcription.language == "en"
+    assert config.wiki.language == "en"
 
 
 def test_load_dotenv_sets_missing_values_and_strips_quotes(tmp_path: Path) -> None:

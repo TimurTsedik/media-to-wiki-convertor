@@ -39,6 +39,11 @@ class LLMConfig:
 
 
 @dataclass(frozen=True)
+class WikiConfig:
+    language: str
+
+
+@dataclass(frozen=True)
 class ChunkingConfig:
     chunk_minutes: int
     overlap_seconds: int
@@ -50,6 +55,7 @@ class PipelineConfig:
     discover: DiscoverConfig
     transcription: TranscriptionConfig
     llm: LLMConfig
+    wiki: WikiConfig
     chunking: ChunkingConfig
 
 
@@ -62,7 +68,11 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
     discover = data.get("discover", {})
     transcription = data.get("transcription", {})
     llm = data.get("llm", {})
+    wiki = data.get("wiki", {})
     chunking = data.get("chunking", {})
+    legacy_language = data.get("language")
+    transcription_language = str(transcription.get("language", legacy_language or "ru"))
+    wiki_language = str(wiki.get("language", legacy_language or transcription_language))
     base_dir = path.parent
 
     return PipelineConfig(
@@ -80,12 +90,13 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
         transcription=TranscriptionConfig(
             engine=str(transcription.get("engine", "mlx-whisper")),
             model=str(transcription.get("model", "mlx-community/whisper-medium")),
-            language=str(transcription.get("language", "ru")),
+            language=transcription_language,
         ),
         llm=LLMConfig(
             provider=str(llm.get("provider", "openai")),
             model=str(llm.get("model", "gpt-5.4-mini")),
         ),
+        wiki=WikiConfig(language=wiki_language),
         chunking=ChunkingConfig(
             chunk_minutes=int(chunking.get("chunk_minutes", llm.get("chunk_minutes", 10))),
             overlap_seconds=int(chunking.get("overlap_seconds", 120)),

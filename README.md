@@ -95,6 +95,18 @@ media-to-wiki-convertor config \
   --language ru
 ```
 
+Language settings are split by purpose in `config.toml`:
+
+```toml
+[transcription]
+language = "en"
+
+[wiki]
+language = "en"
+```
+
+`[transcription].language` is passed to the transcription engine. `[wiki].language` controls the language used for extracted knowledge and drafted articles.
+
 Inspect the plan before spending compute or API budget:
 
 ```bash

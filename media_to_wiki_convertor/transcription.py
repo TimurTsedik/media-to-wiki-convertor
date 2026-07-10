@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Callable
 import wave
 
+import numpy as np
+
 from media_to_wiki_convertor.audio import audio_is_valid, audio_output_path, is_non_empty_file
 from media_to_wiki_convertor.manifest import VideoRecord
 
@@ -129,8 +131,6 @@ def default_mlx_transcriber(audio_path: Path, language: str, model: str) -> list
 
 
 def load_pcm16_wav(audio_path: Path) -> np.ndarray:
-    import numpy as np
-
     with wave.open(str(audio_path), "rb") as wav:
         if wav.getnchannels() != 1 or wav.getsampwidth() != 2 or wav.getframerate() != 16000:
             raise ValueError(f"Expected mono 16 kHz PCM16 WAV: {audio_path}")

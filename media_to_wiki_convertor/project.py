@@ -22,6 +22,9 @@ language = "ru"
 provider = "openai"
 model = "gpt-5.4-mini"
 
+[wiki]
+language = "ru"
+
 [chunking]
 chunk_minutes = 10
 overlap_seconds = 120

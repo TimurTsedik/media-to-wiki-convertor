@@ -9,15 +9,20 @@ from typing import Any, Callable, Protocol
 from media_to_wiki_convertor.knowledge import default_transport, validate_openai_api_key
 
 
-ARTICLE_SYSTEM_PROMPT = """Ты пишешь учебные Markdown-статьи для Obsidian wiki по материалам тренинга.
+def build_article_system_prompt(output_language: str = "ru") -> str:
+    return f"""Ты пишешь учебные Markdown-статьи для Obsidian wiki по материалам тренинга.
 
 Твоя задача: превратить source-backed материалы в осмысленную wiki-статью.
 Не пересказывай звонок по порядку.
 Не добавляй внешние знания.
 Не выдумывай практики, термины, примеры, технологии или причинно-следственные связи.
 Если в источниках мало информации для раздела, пропусти раздел или напиши коротко.
-Пиши на русском, но сохраняй технические термины на английском, если так естественнее.
+Пиши статью на языке: {output_language}.
+Сохраняй технические термины на английском, если так естественнее.
 Не оборачивай ответ в markdown code fence."""
+
+
+ARTICLE_SYSTEM_PROMPT = build_article_system_prompt()
 
 
 Transport = Callable[[str, dict[str, str], dict[str, Any]], dict[str, Any]]
@@ -39,28 +44,42 @@ class OpenAIArticleClient:
         self,
         api_key: str,
         model: str,
+        output_language: str = "ru",
         endpoint: str = "https://api.openai.com/v1/responses",
         transport: Transport | None = None,
     ) -> None:
         self.api_key = validate_openai_api_key(api_key)
         self.model = model
+        self.output_language = output_language
         self.endpoint = endpoint
         self.transport = transport or default_transport
 
     @classmethod
-    def from_env(cls, model: str, api_key_env: str = "OPENAI_API_KEY") -> "OpenAIArticleClient":
+    def from_env(
+        cls,
+        model: str,
+        output_language: str = "ru",
+        api_key_env: str = "OPENAI_API_KEY",
+    ) -> "OpenAIArticleClient":
         api_key = os.environ.get(api_key_env)
         if api_key is None:
             raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell or .env.")
         validate_openai_api_key(api_key, api_key_env)
-        return cls(api_key=api_key, model=model)
+        return cls(api_key=api_key, model=model, output_language=output_language)
 
     def draft(self, source_pack: dict[str, Any], known_titles: list[str]) -> str:
         payload = {
             "model": self.model,
             "input": [
-                {"role": "system", "content": ARTICLE_SYSTEM_PROMPT},
-                {"role": "user", "content": build_article_prompt(source_pack, known_titles)},
+                {"role": "system", "content": build_article_system_prompt(self.output_language)},
+                {
+                    "role": "user",
+                    "content": build_article_prompt(
+                        source_pack,
+                        known_titles,
+                        output_language=self.output_language,
+                    ),
+                },
             ],
         }
         headers = {
@@ -83,7 +102,11 @@ def parse_response_text(response: dict[str, Any]) -> str:
     raise ValueError("OpenAI response did not contain output text.")
 
 
-def build_article_prompt(source_pack: dict[str, Any], known_titles: list[str]) -> str:
+def build_article_prompt(
+    source_pack: dict[str, Any],
+    known_titles: list[str],
+    output_language: str = "ru",
+) -> str:
     article = source_pack.get("article", {})
     known_links = "\n".join(f"- [[{title}]]" for title in known_titles)
     return f"""ARTICLE:
@@ -96,6 +119,7 @@ suggested_sections: {", ".join(article.get("suggested_sections", []))}
 Important:
 Используй только SOURCE_PACK.
 Не добавляй знания, которых нет в SOURCE_PACK.
+Пиши статью на языке: {output_language}.
 Ставь Obsidian-ссылки только на статьи из KNOWN_ARTICLE_TITLES.
 Если упоминаешь связанную тему из списка, используй формат [[Название статьи]].
 Статья должна быть полезной как учебный материал, а не как протокол встречи.

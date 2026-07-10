@@ -25,10 +25,11 @@ def sample_chunk() -> dict:
 
 
 def test_build_extraction_prompt_treats_video_title_as_unreliable_metadata() -> None:
-    prompt = build_extraction_prompt(sample_chunk())
+    prompt = build_extraction_prompt(sample_chunk(), output_language="en")
 
     assert "Название видео может быть техническим" in prompt
     assert "Не используй название видео для вывода тем" in prompt
+    assert "write extracted knowledge in en" in prompt
     assert "VIDEO_ID: abc123" in prompt
     assert "CHUNK_ID: 0001" in prompt
     assert "TRANSCRIPT:" in prompt
@@ -70,6 +71,7 @@ def test_openai_client_builds_responses_api_request_with_json_schema() -> None:
     client = OpenAIKnowledgeClient(
         api_key="secret",
         model="gpt-5.4-mini",
+        output_language="en",
         transport=fake_transport,
     )
 
@@ -82,7 +84,11 @@ def test_openai_client_builds_responses_api_request_with_json_schema() -> None:
     assert request["payload"]["model"] == "gpt-5.4-mini"
     assert request["payload"]["text"]["format"] == KNOWLEDGE_SCHEMA
     assert request["payload"]["input"][0]["role"] == "system"
+    assert "языке: en" in request["payload"]["input"][0]["content"]
     assert request["payload"]["input"][1]["role"] == "user"
+    assert "output_language: write extracted knowledge in en" in request["payload"]["input"][1][
+        "content"
+    ]
 
 
 def test_openai_client_strips_api_key_whitespace() -> None:
