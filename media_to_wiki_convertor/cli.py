@@ -38,6 +38,7 @@ from media_to_wiki_convertor.manifest import (
     write_manifest,
 )
 from media_to_wiki_convertor.project import ProjectSettings, init_project, update_project_config
+from media_to_wiki_convertor.run_events import RunEventStatus, RunEventWriter, format_wall_time, utc_now
 from media_to_wiki_convertor.run_pipeline import PipelineStage, run_selected_stages
 from media_to_wiki_convertor.transcription import (
     append_transcription_log,
@@ -163,6 +164,42 @@ def planned_stage(name: str) -> None:
     say("Run `python3 -m media_to_wiki_convertor discover` first to create the video manifest.")
 
 
+def start_run_event(writer: RunEventWriter, stage: str, item_id: str, message: str):
+    started_at = utc_now()
+    writer.write(
+        stage=stage,
+        item_id=item_id,
+        status="started",
+        started_at=started_at,
+        finished_at=started_at,
+        message=message,
+    )
+    return started_at
+
+
+def finish_run_event(
+    writer: RunEventWriter,
+    *,
+    stage: str,
+    item_id: str,
+    status: RunEventStatus,
+    started_at,
+    message: str,
+    error: str | None = None,
+):
+    finished_at = utc_now()
+    writer.write(
+        stage=stage,
+        item_id=item_id,
+        status=status,
+        started_at=started_at,
+        finished_at=finished_at,
+        message=message,
+        error=error,
+    )
+    return finished_at
+
+
 def extract_audio(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
@@ -177,24 +214,71 @@ def extract_audio(config: PipelineConfig) -> int:
 
     extracted = 0
     skipped = 0
+    failed = 0
+    events = RunEventWriter(config.paths.raw_data)
     for index, record in enumerate(records, start=1):
-        started_at = time.monotonic()
+        monotonic_started_at = time.monotonic()
+        event_started_at = start_run_event(
+            events,
+            "extract-audio",
+            record.video_id,
+            f"audio start {record.video_id}",
+        )
         audio_path = config.paths.raw_data / "audio" / f"{record.video_id}.wav"
-        say(f"[{index}/{len(records)}] audio start {record.video_id}: {audio_path}")
-        result = extract_audio_for_record(record, config.paths.raw_data)
-        elapsed = format_elapsed(time.monotonic() - started_at)
+        say(
+            f"[{index}/{len(records)}] audio start {record.video_id} "
+            f"at {format_wall_time(event_started_at)}: {audio_path}"
+        )
+        try:
+            result = extract_audio_for_record(record, config.paths.raw_data)
+        except Exception as exc:
+            failed += 1
+            elapsed = format_elapsed(time.monotonic() - monotonic_started_at)
+            finished_at = finish_run_event(
+                events,
+                stage="extract-audio",
+                item_id=record.video_id,
+                status="failed",
+                started_at=event_started_at,
+                message=f"audio failed {record.video_id}",
+                error=str(exc),
+            )
+            say(
+                f"[{index}/{len(records)}] audio failed {record.video_id} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {exc}"
+            )
+            continue
+
+        elapsed = format_elapsed(time.monotonic() - monotonic_started_at)
         if result.skipped:
             skipped += 1
-            say(f"[{index}/{len(records)}] audio skip {record.video_id} in {elapsed}: {result.output_path}")
+            status: RunEventStatus = "skipped"
+            message = f"audio skipped {record.video_id}"
         else:
             extracted += 1
+            status = "success"
+            message = f"audio extracted {record.video_id}"
+        finished_at = finish_run_event(
+            events,
+            stage="extract-audio",
+            item_id=record.video_id,
+            status=status,
+            started_at=event_started_at,
+            message=message,
+        )
+        if result.skipped:
+            say(
+                f"[{index}/{len(records)}] audio skip {record.video_id} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
+            )
+        else:
             say(
                 f"[{index}/{len(records)}] audio extracted {record.video_id} "
-                f"in {elapsed}: {result.output_path}"
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
             )
 
-    say(f"Audio extraction complete: extracted={extracted}, skipped={skipped}")
-    return extracted
+    say(f"Audio extraction complete: extracted={extracted}, skipped={skipped}, failed={failed}")
+    return 1 if failed else 0
 
 
 def validate_audio(config: PipelineConfig) -> int:
@@ -234,6 +318,7 @@ def transcribe(config: PipelineConfig) -> int:
     created = 0
     skipped = 0
     failed = 0
+    events = RunEventWriter(config.paths.raw_data)
     say(
         "Transcription settings: "
         f"engine={config.transcription.engine}, "
@@ -243,8 +328,17 @@ def transcribe(config: PipelineConfig) -> int:
     batch_started_at = time.monotonic()
     for index, record in enumerate(records, start=1):
         item_started_at = time.monotonic()
+        event_started_at = start_run_event(
+            events,
+            "transcribe",
+            record.video_id,
+            f"transcribe start {record.video_id}",
+        )
         audio_path = config.paths.raw_data / "audio" / f"{record.video_id}.wav"
-        say(f"[{index}/{len(records)}] transcribe start {record.video_id}: {audio_path}")
+        say(
+            f"[{index}/{len(records)}] transcribe start {record.video_id} "
+            f"at {format_wall_time(event_started_at)}: {audio_path}"
+        )
         try:
             result = transcribe_record(
                 record,
@@ -256,18 +350,47 @@ def transcribe(config: PipelineConfig) -> int:
             failed += 1
             elapsed = format_elapsed(time.monotonic() - item_started_at)
             append_transcription_log(config.paths.raw_data, f"fail {record.video_id} {exc}")
-            say(f"[{index}/{len(records)}] transcribe failed {record.video_id} in {elapsed}: {exc}")
+            finished_at = finish_run_event(
+                events,
+                stage="transcribe",
+                item_id=record.video_id,
+                status="failed",
+                started_at=event_started_at,
+                message=f"transcribe failed {record.video_id}",
+                error=str(exc),
+            )
+            say(
+                f"[{index}/{len(records)}] transcribe failed {record.video_id} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {exc}"
+            )
             continue
 
         elapsed = format_elapsed(time.monotonic() - item_started_at)
         if result.skipped:
             skipped += 1
-            say(f"[{index}/{len(records)}] transcribe skip {record.video_id} in {elapsed}: {result.paths.txt_path}")
+            status = "skipped"
+            message = f"transcribe skipped {record.video_id}"
         else:
             created += 1
+            status = "success"
+            message = f"transcribed {record.video_id}"
+        finished_at = finish_run_event(
+            events,
+            stage="transcribe",
+            item_id=record.video_id,
+            status=status,
+            started_at=event_started_at,
+            message=message,
+        )
+        if result.skipped:
+            say(
+                f"[{index}/{len(records)}] transcribe skip {record.video_id} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.paths.txt_path}"
+            )
+        else:
             say(
                 f"[{index}/{len(records)}] transcribed {record.video_id} "
-                f"in {elapsed}: {result.paths.txt_path}"
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.paths.txt_path}"
             )
 
     total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
@@ -403,13 +526,24 @@ def extract_knowledge(
     created = 0
     skipped = 0
     failed = 0
+    events = RunEventWriter(config.paths.raw_data)
     batch_started_at = time.monotonic()
 
     for index, payload in enumerate(payloads, start=1):
         started_at = time.monotonic()
         video_id = str(payload["video_id"])
         chunk_id = str(payload["chunk_id"])
-        say(f"[{index}/{len(payloads)}] knowledge start {video_id}/{chunk_id}")
+        item_id = f"{video_id}/{chunk_id}"
+        event_started_at = start_run_event(
+            events,
+            "extract-knowledge",
+            item_id,
+            f"knowledge start {item_id}",
+        )
+        say(
+            f"[{index}/{len(payloads)}] knowledge start {item_id} "
+            f"at {format_wall_time(event_started_at)}"
+        )
         try:
             result = extract_chunk_knowledge(
                 config.paths.raw_data,
@@ -420,16 +554,48 @@ def extract_knowledge(
         except Exception as exc:
             failed += 1
             elapsed = format_elapsed(time.monotonic() - started_at)
-            say(f"[{index}/{len(payloads)}] knowledge failed {video_id}/{chunk_id} in {elapsed}: {exc}")
+            finished_at = finish_run_event(
+                events,
+                stage="extract-knowledge",
+                item_id=item_id,
+                status="failed",
+                started_at=event_started_at,
+                message=f"knowledge failed {item_id}",
+                error=str(exc),
+            )
+            say(
+                f"[{index}/{len(payloads)}] knowledge failed {item_id} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {exc}"
+            )
             continue
 
         elapsed = format_elapsed(time.monotonic() - started_at)
         if result.skipped:
             skipped += 1
-            say(f"[{index}/{len(payloads)}] knowledge skip {video_id}/{chunk_id} in {elapsed}: {result.output_path}")
+            status = "skipped"
+            message = f"knowledge skipped {item_id}"
         else:
             created += 1
-            say(f"[{index}/{len(payloads)}] knowledge extracted {video_id}/{chunk_id} in {elapsed}: {result.output_path}")
+            status = "success"
+            message = f"knowledge extracted {item_id}"
+        finished_at = finish_run_event(
+            events,
+            stage="extract-knowledge",
+            item_id=item_id,
+            status=status,
+            started_at=event_started_at,
+            message=message,
+        )
+        if result.skipped:
+            say(
+                f"[{index}/{len(payloads)}] knowledge skip {item_id} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
+            )
+        else:
+            say(
+                f"[{index}/{len(payloads)}] knowledge extracted {item_id} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
+            )
 
     total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
     say(
@@ -543,12 +709,22 @@ def draft_articles(
     created = 0
     skipped = 0
     failed = 0
+    events = RunEventWriter(config.paths.raw_data)
     batch_started_at = time.monotonic()
     for index, source_pack in enumerate(source_packs, start=1):
         started_at = time.monotonic()
         article = source_pack["article"]
         title = str(article["title"])
-        say(f"[{index}/{len(source_packs)}] draft start {title}")
+        event_started_at = start_run_event(
+            events,
+            "draft-articles",
+            title,
+            f"draft start {title}",
+        )
+        say(
+            f"[{index}/{len(source_packs)}] draft start {title} "
+            f"at {format_wall_time(event_started_at)}"
+        )
         try:
             result = draft_article(
                 config.paths.raw_data,
@@ -560,16 +736,48 @@ def draft_articles(
         except Exception as exc:
             failed += 1
             elapsed = format_elapsed(time.monotonic() - started_at)
-            say(f"[{index}/{len(source_packs)}] draft failed {title} in {elapsed}: {exc}")
+            finished_at = finish_run_event(
+                events,
+                stage="draft-articles",
+                item_id=title,
+                status="failed",
+                started_at=event_started_at,
+                message=f"draft failed {title}",
+                error=str(exc),
+            )
+            say(
+                f"[{index}/{len(source_packs)}] draft failed {title} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {exc}"
+            )
             continue
 
         elapsed = format_elapsed(time.monotonic() - started_at)
         if result.skipped:
             skipped += 1
-            say(f"[{index}/{len(source_packs)}] draft skip {title} in {elapsed}: {result.output_path}")
+            status = "skipped"
+            message = f"draft skipped {title}"
         else:
             created += 1
-            say(f"[{index}/{len(source_packs)}] drafted {title} in {elapsed}: {result.output_path}")
+            status = "success"
+            message = f"drafted {title}"
+        finished_at = finish_run_event(
+            events,
+            stage="draft-articles",
+            item_id=title,
+            status=status,
+            started_at=event_started_at,
+            message=message,
+        )
+        if result.skipped:
+            say(
+                f"[{index}/{len(source_packs)}] draft skip {title} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
+            )
+        else:
+            say(
+                f"[{index}/{len(source_packs)}] drafted {title} "
+                f"at {format_wall_time(finished_at)} in {elapsed}: {result.output_path}"
+            )
 
     total_elapsed = format_elapsed(time.monotonic() - batch_started_at)
     say(
@@ -582,17 +790,38 @@ def draft_articles(
 def build_vault(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     started_at = time.monotonic()
-    say(f"Vault build start: {config.paths.vault}")
+    events = RunEventWriter(config.paths.raw_data)
+    event_started_at = start_run_event(events, "build-vault", "vault", "vault build start")
+    say(f"Vault build start at {format_wall_time(event_started_at)}: {config.paths.vault}")
     try:
         result = build_obsidian_vault(config.paths.raw_data, config.paths.vault)
-    except ValueError as exc:
+    except Exception as exc:
+        elapsed = format_elapsed(time.monotonic() - started_at)
+        finished_at = finish_run_event(
+            events,
+            stage="build-vault",
+            item_id="vault",
+            status="failed",
+            started_at=event_started_at,
+            message="vault build failed",
+            error=str(exc),
+        )
+        say(f"Vault build failed at {format_wall_time(finished_at)} in {elapsed}: {exc}")
         say(str(exc))
         return 1
 
     elapsed = format_elapsed(time.monotonic() - started_at)
+    finished_at = finish_run_event(
+        events,
+        stage="build-vault",
+        item_id="vault",
+        status="success",
+        started_at=event_started_at,
+        message="vault build complete",
+    )
     say(
         "Vault build complete "
-        f"in {elapsed}: "
+        f"at {format_wall_time(finished_at)} in {elapsed}: "
         f"articles={result.articles}, "
         f"source_notes={result.source_notes}, "
         f"transcript_notes={result.transcript_notes}, "
@@ -844,8 +1073,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "import-transcript":
         return import_transcript(config, args.video_id, args.file, args.force)
     if args.command == "extract-audio":
-        extract_audio(config)
-        return 0
+        return extract_audio(config)
     if args.command == "validate-audio":
         return validate_audio(config)
     if args.command == "transcribe":

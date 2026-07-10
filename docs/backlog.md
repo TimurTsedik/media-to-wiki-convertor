@@ -128,7 +128,7 @@ Verification:
 
 ### MTW-004: Persist Stage Timing And Run Events
 
-Status: Ready
+Status: Done
 
 Contract:
 
@@ -157,6 +157,14 @@ Audit:
 - Risk: too much logging noise; keep one event per meaningful state.
 - Dependency: none, can be incremental.
 - Verification: unit tests for event writer; CLI-level smoke where practical.
+
+Verification:
+
+- Worker added `RunEventWriter` JSONL support and instrumented core long-running stages.
+- Reviewer expanded `build-vault` failure coverage to unexpected exceptions.
+- `PYTHONPATH=... /tmp/media-wiki-ci-venv/bin/python -m pytest tests/test_run_events.py tests/test_cli.py -q -p no:cacheprovider` -> 5 passed.
+- `PYTHONPATH=... /tmp/media-wiki-ci-venv/bin/python -m pytest -q -p no:cacheprovider` -> 83 passed.
+- `RUFF_CACHE_DIR=/tmp/media-wiki-ruff-cache /tmp/media-wiki-ci-venv/bin/python -m ruff check media_to_wiki_convertor tests` -> passed.
 
 ### MTW-005: Add LLM Provider Factory
 
@@ -196,7 +204,7 @@ Audit:
 
 ## Now
 
-- Start MTW-004.
+- Start MTW-005.
 
 ## Next
 
