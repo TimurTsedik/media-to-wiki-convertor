@@ -20,6 +20,14 @@ INDEX_ROOT = "03 Indexes"
 SOURCE_ROOT = "04 Sources"
 TRANSCRIPT_ROOT = "05 Transcripts"
 SYSTEM_ROOT = "99 System"
+LEGACY_MANAGED_PATHS = (
+    "Wiki",
+    "Index",
+    "Sources",
+    "90 Transcripts",
+    "90 Transcripts.md",
+    "Course Materials",
+)
 
 MANAGED_DIRS = (
     COURSE_ROOT,
@@ -65,6 +73,8 @@ def build_obsidian_vault(raw_data: Path, vault: Path, output_language: str = "ru
         raise ValueError(f"Missing draft article files: {', '.join(missing[:10])}")
 
     vault.mkdir(parents=True, exist_ok=True)
+    for path in LEGACY_MANAGED_PATHS:
+        remove_generated_path(vault / path)
     for dirname in MANAGED_DIRS:
         reset_dir(vault / dirname)
 
@@ -132,6 +142,31 @@ def note_path_for_title(title: str) -> Path:
 
 def note_target_for_title(title: str) -> str:
     return note_path_for_title(title).with_suffix("").as_posix()
+
+
+def source_chunk_target(video_id: str, chunk_id: str) -> str:
+    return f"{SOURCE_ROOT}/Chunks/{video_id}/{chunk_id}"
+
+
+def catalog_target(catalog_key: str) -> str:
+    return f"{INDEX_ROOT}/Catalog/{catalog_key}"
+
+
+def rewrite_legacy_vault_target(target: str) -> str:
+    legacy_roots = {
+        "Wiki": ARTICLE_ROOT,
+        "Sources": SOURCE_ROOT,
+        "Course Materials": COURSE_ROOT,
+        "Index": INDEX_ROOT,
+        "90 Transcripts": TRANSCRIPT_ROOT,
+    }
+    for legacy_root, current_root in legacy_roots.items():
+        if target == legacy_root:
+            return current_root
+        legacy_prefix = f"{legacy_root}/"
+        if target.startswith(legacy_prefix):
+            return f"{current_root}/{target.removeprefix(legacy_prefix)}"
+    return ""
 
 
 def sanitize_filename_part(value: str) -> str:
@@ -218,7 +253,7 @@ def add_article_transcript_sources(
         end = str(source.get("end", ""))
         time_range = f" {start}-{end}" if start or end else ""
         lines.append(
-            f"- [[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]{time_range}"
+            f"- [[{source_chunk_target(video_id, chunk_id)}|{video_id}/{chunk_id}]]{time_range}"
         )
 
     return markdown.rstrip() + "\n" + "\n".join(lines).rstrip() + "\n"
@@ -258,15 +293,15 @@ def write_indexes(
     records_by_id: dict[str, VideoRecord],
     output_language: str = "ru",
 ) -> int:
-    write_text(vault / "Index" / "Articles.md", render_articles_index(pages))
-    write_text(vault / "Index" / "Domains.md", render_domains_index(pages))
-    write_text(vault / "Index" / "Sources.md", render_sources_index(source_pages, records_by_id))
+    write_text(vault / INDEX_ROOT / "Articles.md", render_articles_index(pages))
+    write_text(vault / INDEX_ROOT / "Domains.md", render_domains_index(pages))
+    write_text(vault / INDEX_ROOT / "Sources.md", render_sources_index(source_pages, records_by_id))
     write_text(
-        vault / "Index" / "Deferred Topics.md",
+        vault / INDEX_ROOT / "Deferred Topics.md",
         render_deferred_index(raw_data, output_language=output_language),
     )
     write_text(
-        vault / "Index" / "Unlinked Mentions.md",
+        vault / INDEX_ROOT / "Unlinked Mentions.md",
         render_unlinked_mentions(unlinked_mentions, output_language=output_language),
     )
     catalog_indexes = write_catalog_indexes(
@@ -294,21 +329,21 @@ def write_home(
     knowledge_count = count_files(raw_data / "extracted_knowledge", "*.json")
     drafts_count = count_files(raw_data / "draft_articles", "*.md")
     navigation = [
-        "- [[Index/Articles|Articles]]",
-        "- [[Index/Domains|Domains]]",
+        f"- [[{INDEX_ROOT}/Articles|Articles]]",
+        f"- [[{INDEX_ROOT}/Domains|Domains]]",
     ]
     if has_catalog:
-        navigation.append("- [[Index/Catalog|Catalog]]")
+        navigation.append(f"- [[{INDEX_ROOT}/Catalog|Catalog]]")
     if has_course_materials:
         navigation.append(
-            f"- [[Course Materials/00 {labels.course_materials_title}|{labels.course_materials_title}]]"
+            f"- [[{COURSE_ROOT}/00 {labels.course_materials_title}|{labels.course_materials_title}]]"
         )
     navigation.extend(
         [
-            "- [[Index/Sources|Sources]]",
-            "- [[90 Transcripts|Transcripts]]",
-            "- [[Index/Deferred Topics|Deferred Topics]]",
-            "- [[Index/Unlinked Mentions|Unlinked Mentions]]",
+            f"- [[{INDEX_ROOT}/Sources|Sources]]",
+            f"- [[{TRANSCRIPT_ROOT}|Transcripts]]",
+            f"- [[{INDEX_ROOT}/Deferred Topics|Deferred Topics]]",
+            f"- [[{INDEX_ROOT}/Unlinked Mentions|Unlinked Mentions]]",
         ]
     )
     lines = [
@@ -377,7 +412,7 @@ def render_sources_index(
         transcript = transcript_link(video_id, records_by_id)
         transcript_part = f" — {transcript}" if transcript else ""
         lines.append(
-            f"- [[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]"
+            f"- [[{source_chunk_target(video_id, chunk_id)}|{video_id}/{chunk_id}]]"
             f"{transcript_part} — {links}"
         )
     return "\n".join(lines).rstrip() + "\n"
@@ -394,13 +429,13 @@ def write_catalog_indexes(
         return 0
 
     known_titles = {str(page.get("title", "")) for page in pages}
-    write_text(vault / "Index" / "Catalog.md", render_catalog_index(categories))
+    write_text(vault / INDEX_ROOT / "Catalog.md", render_catalog_index(categories))
     for category in categories:
         key = str(category.get("key", "")).strip() or sanitize_filename_part(
             str(category.get("title", "Catalog"))
         )
         write_text(
-            vault / "Index" / "Catalog" / f"{key}.md",
+            vault / INDEX_ROOT / "Catalog" / f"{key}.md",
             render_catalog_category(
                 category,
                 known_titles,
@@ -419,7 +454,7 @@ def render_catalog_index(categories: list[dict[str, Any]]) -> str:
         deferred_count = int(category.get("deferred_count", 0))
         source_count = int(category.get("source_count", 0))
         lines.append(
-            f"- [[Index/Catalog/{key}|{title}]] — "
+            f"- [[{catalog_target(key)}|{title}]] — "
             f"articles={article_count}; topics={deferred_count}; sources={source_count}"
         )
     return "\n".join(lines).rstrip() + "\n"
@@ -486,7 +521,7 @@ def write_course_materials(
     source_alias_targets = course_article_source_alias_targets(pages)
     course_link_targets = {title: note_target_for_title(title) for title in known_titles}
     write_text(
-        vault / "Course Materials" / f"00 {labels.course_materials_title}.md",
+        vault / COURSE_ROOT / f"00 {labels.course_materials_title}.md",
         render_course_materials_index(chapters, output_language=output_language),
     )
     for chapter in chapters:
@@ -519,7 +554,7 @@ def write_course_materials(
         else:
             markdown = render_course_chapter(chapter, known_titles, output_language=output_language)
         write_text(
-            vault / "Course Materials" / f"{key}.md",
+            vault / COURSE_ROOT / f"{key}.md",
             markdown,
         )
     return 1 + len(chapters)
@@ -537,7 +572,7 @@ def render_course_materials_index(
         article_count = int(chapter.get("article_count", 0))
         topic_count = int(chapter.get("topic_count", 0))
         lines.append(
-            f"- [[Course Materials/{key}|{title}]] — "
+            f"- [[{COURSE_ROOT}/{key}|{title}]] — "
             f"articles={article_count}; topics={topic_count}"
         )
     return "\n".join(lines).rstrip() + "\n"
@@ -612,7 +647,13 @@ def rewrite_course_material_links(
     source_targets: set[tuple[str, str]] | None = None,
     source_alias_targets: dict[tuple[str, str], tuple[str, str]] | None = None,
 ) -> str:
-    known_vault_prefixes = ("Wiki/", "Sources/", "Course Materials/", "Index/", "90 Transcripts/")
+    known_vault_prefixes = (
+        f"{ARTICLE_ROOT}/",
+        f"{SOURCE_ROOT}/",
+        f"{COURSE_ROOT}/",
+        f"{INDEX_ROOT}/",
+        f"{TRANSCRIPT_ROOT}/",
+    )
     source_targets = source_targets or set()
     source_alias_targets = source_alias_targets or {}
 
@@ -620,6 +661,13 @@ def rewrite_course_material_links(
         target = match.group(1).strip()
         alias = match.group(2)
         base_target, separator, heading = target.partition("#")
+        legacy_target = rewrite_legacy_vault_target(base_target)
+        if legacy_target:
+            rewritten_target = legacy_target
+            if separator:
+                rewritten_target = f"{rewritten_target}#{heading}"
+            label = alias if alias is not None else base_target.rsplit("/", 1)[-1]
+            return f"[[{rewritten_target}|{label}]]"
         if base_target.startswith(known_vault_prefixes):
             return match.group(0)
         if base_target not in link_targets:
@@ -679,14 +727,14 @@ def rewrite_course_material_map_links(
             rewritten_lines.append(f"- [[{link_targets[label]}|{label}]]")
             changed = True
         elif label in headings:
-            rewritten_lines.append(f"- [[Course Materials/{chapter_key}#{label}|{label}]]")
+            rewritten_lines.append(f"- [[{COURSE_ROOT}/{chapter_key}#{label}|{label}]]")
             changed = True
         elif heading := fuzzy_course_heading(label, headings):
-            rewritten_lines.append(f"- [[Course Materials/{chapter_key}#{heading}|{label}]]")
+            rewritten_lines.append(f"- [[{COURSE_ROOT}/{chapter_key}#{heading}|{label}]]")
             changed = True
         elif has_reference_appendix:
             rewritten_lines.append(
-                f"- [[Course Materials/{chapter_key}#{reference_anchor}|{label}]]"
+                f"- [[{COURSE_ROOT}/{chapter_key}#{reference_anchor}|{label}]]"
             )
             changed = True
         else:
@@ -791,7 +839,7 @@ def rewrite_course_material_source_refs(
             video_id, chunk_id = source_alias_targets[source_target]
         elif source_target not in source_targets:
             return None
-        return f"[[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]"
+        return f"[[{source_chunk_target(video_id, chunk_id)}|{video_id}/{chunk_id}]]"
 
     def replace_backticked(match: re.Match[str]) -> str:
         source_ref = extract_course_source_ref(match.group(1))
@@ -942,7 +990,7 @@ def catalog_topic_source_links(topic: dict[str, Any]) -> list[str]:
         chunk_id = str(source.get("chunk_id", "")).strip()
         if not video_id or not chunk_id:
             continue
-        links.append(f"[[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]")
+        links.append(f"[[{source_chunk_target(video_id, chunk_id)}|{video_id}/{chunk_id}]]")
     return links
 
 
@@ -994,7 +1042,7 @@ def source_page_link(page: dict[str, Any]) -> str:
     catalog_key = str(page.get("catalog_key", "")).strip()
     if catalog_key:
         title = str(page.get("title", "Catalog Topic"))
-        return f"[[Index/Catalog/{catalog_key}|{title}]]"
+        return f"[[{catalog_target(catalog_key)}|{title}]]"
     return article_link(page)
 
 
@@ -1056,7 +1104,7 @@ def write_source_notes(
             str(chunk.get("text", "")).strip(),
             "",
         ]
-        write_text(vault / "Sources" / "Chunks" / video_id / f"{chunk_id}.md", "\n".join(lines))
+        write_text(vault / SOURCE_ROOT / "Chunks" / video_id / f"{chunk_id}.md", "\n".join(lines))
     return len(source_pages)
 
 
@@ -1064,7 +1112,7 @@ def transcript_link(video_id: str, records_by_id: dict[str, VideoRecord]) -> str
     record = records_by_id.get(video_id)
     if record is None:
         return ""
-    return f"[[90 Transcripts/{record.video_id}|{record.title}]]"
+    return f"[[{TRANSCRIPT_ROOT}/{record.video_id}|{record.title}]]"
 
 
 def write_transcript_notes(
@@ -1076,17 +1124,17 @@ def write_transcript_notes(
     records = read_manifest(raw_data)
     transcript_records = [record for record in records if transcript_paths(raw_data, record.video_id)]
     labels = wiki_labels(output_language)
-    lines = ["# 90 Transcripts", ""]
+    lines = [f"# {TRANSCRIPT_ROOT}", ""]
     if not transcript_records:
         lines.append(labels.no_transcripts)
-        write_text(vault / "90 Transcripts.md", "\n".join(lines) + "\n")
+        write_text(vault / f"{TRANSCRIPT_ROOT}.md", "\n".join(lines) + "\n")
         return 0
 
     for record in sorted(transcript_records, key=lambda item: item.title.casefold()):
         write_transcript_note(raw_data, vault, record, source_pages)
-        lines.append(f"- [[90 Transcripts/{record.video_id}|{record.title}]]")
+        lines.append(f"- [[{TRANSCRIPT_ROOT}/{record.video_id}|{record.title}]]")
 
-    write_text(vault / "90 Transcripts.md", "\n".join(lines).rstrip() + "\n")
+    write_text(vault / f"{TRANSCRIPT_ROOT}.md", "\n".join(lines).rstrip() + "\n")
     return len(transcript_records)
 
 
@@ -1114,9 +1162,9 @@ def write_transcript_note(
         lines.extend(["", "## Used Source Chunks", ""])
         for chunk_id in used_chunks:
             lines.append(
-                f"- [[Sources/Chunks/{record.video_id}/{chunk_id}|{record.video_id}/{chunk_id}]]"
+                f"- [[{source_chunk_target(record.video_id, chunk_id)}|{record.video_id}/{chunk_id}]]"
             )
-    write_text(vault / "90 Transcripts" / f"{record.video_id}.md", "\n".join(lines) + "\n")
+    write_text(vault / TRANSCRIPT_ROOT / f"{record.video_id}.md", "\n".join(lines) + "\n")
 
 
 def transcript_paths(raw_data: Path, video_id: str) -> list[tuple[str, Path]]:
@@ -1147,7 +1195,7 @@ def find_source(pages: list[dict[str, Any]], video_id: str, chunk_id: str) -> di
 
 
 def count_vault_articles(vault: Path) -> int:
-    wiki_dir = vault / "Wiki"
+    wiki_dir = vault / ARTICLE_ROOT
     if not wiki_dir.exists():
         return 0
     return count_files(wiki_dir, "*.md")
@@ -1181,6 +1229,13 @@ def reset_dir(path: Path) -> None:
     if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
+
+
+def remove_generated_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
 
 
 def write_text(path: Path, text: str) -> None:

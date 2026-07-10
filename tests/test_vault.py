@@ -16,6 +16,13 @@ from media_to_wiki_convertor.vault import (
 )
 
 
+ARTICLE_PREFIX = f"{ARTICLE_ROOT}/"
+COURSE_PREFIX = f"{COURSE_ROOT}/"
+INDEX_PREFIX = f"{INDEX_ROOT}/"
+SOURCE_PREFIX = f"{SOURCE_ROOT}/"
+TRANSCRIPT_PREFIX = f"{TRANSCRIPT_ROOT}/"
+
+
 def write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -245,7 +252,7 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
 
     rewritten = rewrite_course_material_links(
         markdown,
-        {"AWS Bedrock": "Wiki/AWS Bedrock"},
+        {"AWS Bedrock": f"{ARTICLE_PREFIX}AWS Bedrock"},
         source_targets={("f323d805b520", "0011"), ("307869628eba", "0004")},
         source_alias_targets={
             ("14c6fbca1e96", "0002"): ("14c6fbca1e96", "0002"),
@@ -266,30 +273,30 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
         },
     )
 
-    assert "[[Sources/Chunks/f323d805b520/0011|f323d805b520/0011]]" in rewritten
-    assert "[[Sources/Chunks/307869628eba/0004|307869628eba/0004]]" in rewritten
-    assert "[[Sources/Chunks/14c6fbca1e96/0002|14c6fbca1e96/0002]]" in rewritten
-    assert "[[Sources/Chunks/14c6fbca1e96/0003|14c6fbca1e96/0003]]" in rewritten
-    assert "[[Sources/Chunks/18797da45247/0005|18797da45247/0005]]" in rewritten
-    assert "[[Sources/Chunks/18797da45247/0002|18797da45247/0002]]" in rewritten
-    assert "[[Sources/Chunks/903e979351ee/0004|903e979351ee/0004]]" in rewritten
-    assert "[[Sources/Chunks/7d1f2472d5ed/0007|7d1f2472d5ed/0007]]" in rewritten
-    assert "[[Sources/Chunks/8dac023c7ead/0002|8dac023c7ead/0002]]" in rewritten
-    assert "[[Sources/Chunks/3eef9508e333/0003|3eef9508e333/0003]]" in rewritten
-    assert "[[Sources/Chunks/dc51bf126b22/0008|dc51bf126b22/0008]]" in rewritten
-    assert "[[Sources/Chunks/9eb1cccd1e24/0010|9eb1cccd1e24/0010]]" in rewritten
-    assert "[[Sources/Chunks/9e4e5e61cab0/0011|9e4e5e61cab0/0011]]" in rewritten
-    assert "[[Sources/Chunks/9e4e5e61cab0/0004|9e4e5e61cab0/0004]]" in rewritten
-    assert "[[Sources/Chunks/8dac023c7ead/0005|8dac023c7ead/0005]]" in rewritten
-    assert "[[Sources/Chunks/492d35edaba6/0007|492d35edaba6/0007]]" in rewritten
-    assert "[[[Sources/" not in rewritten
-    assert "`[[Sources/" not in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/f323d805b520/0011|f323d805b520/0011]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/307869628eba/0004|307869628eba/0004]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/14c6fbca1e96/0002|14c6fbca1e96/0002]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/14c6fbca1e96/0003|14c6fbca1e96/0003]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/18797da45247/0005|18797da45247/0005]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/18797da45247/0002|18797da45247/0002]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/903e979351ee/0004|903e979351ee/0004]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/7d1f2472d5ed/0007|7d1f2472d5ed/0007]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/8dac023c7ead/0002|8dac023c7ead/0002]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/3eef9508e333/0003|3eef9508e333/0003]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/dc51bf126b22/0008|dc51bf126b22/0008]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/9eb1cccd1e24/0010|9eb1cccd1e24/0010]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/9e4e5e61cab0/0011|9e4e5e61cab0/0011]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/9e4e5e61cab0/0004|9e4e5e61cab0/0004]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/8dac023c7ead/0005|8dac023c7ead/0005]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/492d35edaba6/0007|492d35edaba6/0007]]" in rewritten
+    assert f"[[[{SOURCE_ROOT}/" not in rewritten
+    assert f"`[[{SOURCE_ROOT}/" not in rewritten
     assert "](https://source/" not in rewritten
     assert "](source://" not in rewritten
     assert "[missingvideo:0001]" in rewritten
     assert "source:missingvideo#0002" in rewritten
-    assert "[[Wiki/AWS Bedrock|AWS Bedrock]]" in rewritten
-    assert "[[Sources/Chunks/f323d805b520/0011|готовая ссылка]]" in rewritten
+    assert f"[[{ARTICLE_PREFIX}AWS Bedrock|AWS Bedrock]]" in rewritten
+    assert f"[[{SOURCE_PREFIX}Chunks/f323d805b520/0011|готовая ссылка]]" in rewritten
 
 
 def test_rewrite_course_material_map_links_links_articles_and_local_headings() -> None:
@@ -316,12 +323,15 @@ def test_rewrite_course_material_map_links_links_articles_and_local_headings() -
     rewritten = rewrite_course_material_map_links(
         markdown,
         chapter_key="software-engineering",
-        link_targets={"Spec Driven Development": "Wiki/Spec Driven Development"},
+        link_targets={"Spec Driven Development": f"{ARTICLE_PREFIX}Spec Driven Development"},
     )
 
-    assert "- [[Wiki/Spec Driven Development|Spec Driven Development]]" in rewritten
-    assert "- [[Course Materials/software-engineering#Deferred Topic|Deferred Topic]]" in rewritten
-    assert "- [[Course Materials/software-engineering#Полный список подтем и источников|Missing Topic]]" in rewritten
+    assert f"- [[{ARTICLE_PREFIX}Spec Driven Development|Spec Driven Development]]" in rewritten
+    assert f"- [[{COURSE_PREFIX}software-engineering#Deferred Topic|Deferred Topic]]" in rewritten
+    assert (
+        f"- [[{COURSE_PREFIX}software-engineering#Полный список подтем и источников|Missing Topic]]"
+        in rewritten
+    )
 
 
 def test_rewrite_course_material_map_links_fuzzy_matches_heading_titles() -> None:
@@ -342,7 +352,7 @@ def test_rewrite_course_material_map_links_fuzzy_matches_heading_titles() -> Non
         link_targets={},
     )
 
-    assert "- [[Course Materials/devops#CI/CD и monorepository|CI/CD]]" in rewritten
+    assert f"- [[{COURSE_PREFIX}devops#CI/CD и monorepository|CI/CD]]" in rewritten
 
 
 def test_rewrite_course_material_map_links_handles_english_section_headings() -> None:
@@ -366,12 +376,12 @@ Text.
     rewritten = rewrite_course_material_map_links(
         markdown,
         chapter_key="devops",
-        link_targets={"Spec Driven Development": "Wiki/Spec Driven Development"},
+        link_targets={"Spec Driven Development": f"{ARTICLE_PREFIX}Spec Driven Development"},
     )
 
-    assert "- [[Wiki/Spec Driven Development|Spec Driven Development]]" in rewritten
-    assert "- [[Course Materials/devops#CI/CD and monorepository|CI/CD]]" in rewritten
-    assert "- [[Course Materials/devops#Full Topic and Source Index|Missing Topic]]" in rewritten
+    assert f"- [[{ARTICLE_PREFIX}Spec Driven Development|Spec Driven Development]]" in rewritten
+    assert f"- [[{COURSE_PREFIX}devops#CI/CD and monorepository|CI/CD]]" in rewritten
+    assert f"- [[{COURSE_PREFIX}devops#Full Topic and Source Index|Missing Topic]]" in rewritten
     assert "## Section Map" in rewritten
 
 
@@ -392,70 +402,76 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert (vault / ".obsidian" / "app.json").read_text(encoding="utf-8") == "{}"
     assert (vault / "manual.md").read_text(encoding="utf-8") == "do not touch"
 
-    spec = (vault / "Wiki" / "Spec Driven Development.md").read_text(encoding="utf-8")
-    daily = (vault / "Wiki" / "Daily" / "Standup.md").read_text(encoding="utf-8")
+    spec = (vault / ARTICLE_ROOT / "Spec Driven Development.md").read_text(encoding="utf-8")
+    daily = (vault / ARTICLE_ROOT / "Daily" / "Standup.md").read_text(encoding="utf-8")
 
     assert "aliases:" in spec
-    assert "[[Wiki/Daily/Standup|Daily / Standup]]" in spec
+    assert f"[[{ARTICLE_PREFIX}Daily/Standup|Daily / Standup]]" in spec
     assert "## Исходные транскрибации" in spec
-    assert "[[90 Transcripts/video-a|Video A]]" in spec
-    assert "[[Sources/Chunks/video-a/0001|video-a/0001]]" in spec
+    assert f"[[{TRANSCRIPT_PREFIX}video-a|Video A]]" in spec
+    assert f"[[{SOURCE_PREFIX}Chunks/video-a/0001|video-a/0001]]" in spec
     assert "[[Unknown Topic]]" not in spec
     assert "Unknown Topic" in spec
-    assert "[[Wiki/Spec Driven Development|SDD]]" in daily
+    assert f"[[{ARTICLE_PREFIX}Spec Driven Development|SDD]]" in daily
     assert (vault / "00 Home.md").exists()
-    assert (vault / "Index" / "Articles.md").exists()
-    assert (vault / "Index" / "Domains.md").exists()
-    assert (vault / "Index" / "Sources.md").exists()
-    assert (vault / "Index" / "Catalog.md").exists()
-    assert (vault / "Index" / "Catalog" / "software-engineering.md").exists()
-    assert (vault / "Course Materials" / "00 Справочные материалы по курсу.md").exists()
-    assert (vault / "Course Materials" / "software-engineering.md").exists()
-    assert (vault / "Index" / "Deferred Topics.md").exists()
-    assert "Unknown Topic" in (vault / "Index" / "Unlinked Mentions.md").read_text(encoding="utf-8")
-    home = (vault / "00 Home.md").read_text(encoding="utf-8")
-    catalog_index = (vault / "Index" / "Catalog.md").read_text(encoding="utf-8")
-    catalog_category = (vault / "Index" / "Catalog" / "software-engineering.md").read_text(encoding="utf-8")
-    assert "[[Index/Catalog|Catalog]]" in home
-    assert (
-        "[[Course Materials/00 Справочные материалы по курсу|Справочные материалы по курсу]]"
-        in home
-    )
-    assert "[[Index/Catalog/software-engineering|Software Engineering]]" in catalog_index
-    course_index = (
-        vault / "Course Materials" / "00 Справочные материалы по курсу.md"
-    ).read_text(encoding="utf-8")
-    course_chapter = (vault / "Course Materials" / "software-engineering.md").read_text(
+    assert (vault / INDEX_ROOT / "Articles.md").exists()
+    assert (vault / INDEX_ROOT / "Domains.md").exists()
+    assert (vault / INDEX_ROOT / "Sources.md").exists()
+    assert (vault / INDEX_ROOT / "Catalog.md").exists()
+    assert (vault / INDEX_ROOT / "Catalog" / "software-engineering.md").exists()
+    assert (vault / COURSE_ROOT / "00 Справочные материалы по курсу.md").exists()
+    assert (vault / COURSE_ROOT / "software-engineering.md").exists()
+    assert (vault / INDEX_ROOT / "Deferred Topics.md").exists()
+    assert "Unknown Topic" in (vault / INDEX_ROOT / "Unlinked Mentions.md").read_text(
         encoding="utf-8"
     )
-    assert "[[Course Materials/software-engineering|Software Engineering]]" in course_index
+    home = (vault / "00 Home.md").read_text(encoding="utf-8")
+    catalog_index = (vault / INDEX_ROOT / "Catalog.md").read_text(encoding="utf-8")
+    catalog_category = (vault / INDEX_ROOT / "Catalog" / "software-engineering.md").read_text(
+        encoding="utf-8"
+    )
+    assert f"[[{INDEX_PREFIX}Catalog|Catalog]]" in home
+    assert (
+        f"[[{COURSE_PREFIX}00 Справочные материалы по курсу|Справочные материалы по курсу]]"
+        in home
+    )
+    assert f"[[{INDEX_PREFIX}Catalog/software-engineering|Software Engineering]]" in catalog_index
+    course_index = (
+        vault / COURSE_ROOT / "00 Справочные материалы по курсу.md"
+    ).read_text(encoding="utf-8")
+    course_chapter = (vault / COURSE_ROOT / "software-engineering.md").read_text(
+        encoding="utf-8"
+    )
+    assert f"[[{COURSE_PREFIX}software-engineering|Software Engineering]]" in course_index
     assert "LLM draft." in course_chapter
-    assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in course_chapter
+    assert f"[[{ARTICLE_PREFIX}Spec Driven Development|Spec Driven Development]]" in course_chapter
     assert "## Полный список подтем и источников" in course_chapter
     assert "Deferred Topic" in course_chapter
-    assert "[[Sources/Chunks/video-c/0003|video-c/0003]]" in course_chapter
-    assert "[[Wiki/Spec Driven Development|Spec Driven Development]]" in catalog_category
-    assert "[[Wiki/Deferred Topic" not in catalog_category
+    assert f"[[{SOURCE_PREFIX}Chunks/video-c/0003|video-c/0003]]" in course_chapter
+    assert f"[[{ARTICLE_PREFIX}Spec Driven Development|Spec Driven Development]]" in catalog_category
+    assert f"[[{ARTICLE_PREFIX}Deferred Topic" not in catalog_category
     assert "Deferred Topic" in catalog_category
-    assert "[[Sources/Chunks/video-c/0003|video-c/0003]]" in catalog_category
-    sources_index = (vault / "Index" / "Sources.md").read_text(encoding="utf-8")
-    assert "[[Index/Catalog/software-engineering|Deferred Topic]]" in sources_index
-    assert "[[Wiki/Deferred Topic" not in sources_index
-    source_note = (vault / "Sources" / "Chunks" / "video-a" / "0001.md").read_text(encoding="utf-8")
-    assert "[[90 Transcripts/video-a|Video A]]" in source_note
+    assert f"[[{SOURCE_PREFIX}Chunks/video-c/0003|video-c/0003]]" in catalog_category
+    sources_index = (vault / INDEX_ROOT / "Sources.md").read_text(encoding="utf-8")
+    assert f"[[{INDEX_PREFIX}Catalog/software-engineering|Deferred Topic]]" in sources_index
+    assert f"[[{ARTICLE_PREFIX}Deferred Topic" not in sources_index
+    source_note = (vault / SOURCE_ROOT / "Chunks" / "video-a" / "0001.md").read_text(
+        encoding="utf-8"
+    )
+    assert f"[[{TRANSCRIPT_PREFIX}video-a|Video A]]" in source_note
     deferred_source_note = (
-        vault / "Sources" / "Chunks" / "video-c" / "0003.md"
+        vault / SOURCE_ROOT / "Chunks" / "video-c" / "0003.md"
     ).read_text(encoding="utf-8")
-    assert "[[90 Transcripts/video-c|Video C]]" in deferred_source_note
-    assert "[[Index/Catalog/software-engineering|Deferred Topic]]" in deferred_source_note
+    assert f"[[{TRANSCRIPT_PREFIX}video-c|Video C]]" in deferred_source_note
+    assert f"[[{INDEX_PREFIX}Catalog/software-engineering|Deferred Topic]]" in deferred_source_note
 
-    transcript_index = (vault / "90 Transcripts.md").read_text(encoding="utf-8")
-    transcript_note = (vault / "90 Transcripts" / "video-a.md").read_text(encoding="utf-8")
-    assert "[[90 Transcripts/video-a|Video A]]" in transcript_index
+    transcript_index = (vault / f"{TRANSCRIPT_ROOT}.md").read_text(encoding="utf-8")
+    transcript_note = (vault / TRANSCRIPT_ROOT / "video-a.md").read_text(encoding="utf-8")
+    assert f"[[{TRANSCRIPT_PREFIX}video-a|Video A]]" in transcript_index
     assert "[TXT](" in transcript_note
     assert "[SRT](" in transcript_note
     assert "[JSON](" in transcript_note
-    assert "[[Sources/Chunks/video-a/0001|video-a/0001]]" in transcript_note
+    assert f"[[{SOURCE_PREFIX}Chunks/video-a/0001|video-a/0001]]" in transcript_note
 
 
 def test_build_obsidian_vault_localizes_course_materials_to_english(tmp_path: Path) -> None:
@@ -467,17 +483,17 @@ def test_build_obsidian_vault_localizes_course_materials_to_english(tmp_path: Pa
 
     build_obsidian_vault(raw_data, vault, output_language="en")
 
-    assert (vault / "Course Materials" / "00 Course Reference Materials.md").exists()
-    course_index = (vault / "Course Materials" / "00 Course Reference Materials.md").read_text(
+    assert (vault / COURSE_ROOT / "00 Course Reference Materials.md").exists()
+    course_index = (vault / COURSE_ROOT / "00 Course Reference Materials.md").read_text(
         encoding="utf-8"
     )
-    course_chapter = (vault / "Course Materials" / "software-engineering.md").read_text(
+    course_chapter = (vault / COURSE_ROOT / "software-engineering.md").read_text(
         encoding="utf-8"
     )
     home = (vault / "00 Home.md").read_text(encoding="utf-8")
 
     assert "# Course Reference Materials" in course_index
-    assert "[[Course Materials/00 Course Reference Materials|Course Reference Materials]]" in home
+    assert f"[[{COURSE_PREFIX}00 Course Reference Materials|Course Reference Materials]]" in home
     assert "## Section Map" in course_chapter
     assert "## Course Topics" in course_chapter
     assert "No standalone wiki articles yet." not in course_chapter
@@ -488,7 +504,7 @@ def test_build_obsidian_vault_localizes_course_materials_to_english(tmp_path: Pa
     assert "## Vault Status" in home
     assert "Larchenko" not in home
 
-    article = (vault / "Wiki" / "Spec Driven Development.md").read_text(encoding="utf-8")
+    article = (vault / ARTICLE_ROOT / "Spec Driven Development.md").read_text(encoding="utf-8")
     assert "## Source Transcripts" in article
     assert "## Исходные транскрибации" not in article
 
@@ -517,8 +533,8 @@ Text.
 
     build_obsidian_vault(raw_data, vault, output_language="en")
 
-    article = (vault / "Wiki" / "Spec Driven Development.md").read_text(encoding="utf-8")
-    course_chapter = (vault / "Course Materials" / "software-engineering.md").read_text(
+    article = (vault / ARTICLE_ROOT / "Spec Driven Development.md").read_text(encoding="utf-8")
+    course_chapter = (vault / COURSE_ROOT / "software-engineering.md").read_text(
         encoding="utf-8"
     )
 
@@ -544,5 +560,5 @@ def test_build_obsidian_vault_omits_catalog_link_when_catalog_is_missing(tmp_pat
     build_obsidian_vault(raw_data, vault)
 
     home = (vault / "00 Home.md").read_text(encoding="utf-8")
-    assert "[[Index/Catalog|Catalog]]" not in home
-    assert not (vault / "Index" / "Catalog.md").exists()
+    assert f"[[{INDEX_PREFIX}Catalog|Catalog]]" not in home
+    assert not (vault / INDEX_ROOT / "Catalog.md").exists()
