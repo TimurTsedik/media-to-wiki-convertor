@@ -40,6 +40,16 @@ videos
 
 Every stage writes files to disk, so the pipeline is resumable. If a run stops halfway through, fix the problem and rerun the next command.
 
+## Recent Updates
+
+This project has already absorbed its first round of real user feedback:
+
+- Windows-friendly transcript import: use `import-transcript` when `mlx-whisper` is unavailable or when transcripts already exist.
+- Untimed text transcripts: plain `.txt` imports are chunked by word windows with overlap, without inventing fake timestamps.
+- Separate language settings: `[transcription].language` controls speech/transcript language, while `[wiki].language` controls extracted knowledge and drafted article language.
+- Run telemetry: long-running stages write support-friendly JSONL events to `raw-data/logs/run-events.jsonl` with start, finish, elapsed time, status, and errors.
+- LLM provider configuration: keep the default OpenAI Responses API client, or point `provider = "openai-compatible"` at a compatible endpoint with a custom API key env var.
+
 ## Requirements
 
 - Python 3.11+
@@ -244,7 +254,7 @@ The vault contains:
 Expected result:
 
 ```text
-72 passed
+87 passed
 ```
 
 ## Notes
