@@ -405,6 +405,11 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     (vault / ".obsidian").mkdir(parents=True)
     (vault / ".obsidian" / "app.json").write_text("{}", encoding="utf-8")
     (vault / "manual.md").write_text("do not touch", encoding="utf-8")
+    (vault / "00 Home.md").write_text("stale generated home", encoding="utf-8")
+    (vault / "Wiki").mkdir(parents=True)
+    (vault / "Wiki" / "Old Article.md").write_text("stale generated article", encoding="utf-8")
+    (vault / "Index").mkdir(parents=True)
+    (vault / "Index" / "Old Index.md").write_text("stale generated index", encoding="utf-8")
 
     result = build_obsidian_vault(raw_data, vault)
 
@@ -414,6 +419,9 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert count_vault_articles(vault) == 2
     assert (vault / ".obsidian" / "app.json").read_text(encoding="utf-8") == "{}"
     assert (vault / "manual.md").read_text(encoding="utf-8") == "do not touch"
+    assert not (vault / "00 Home.md").exists()
+    assert not (vault / "Wiki").exists()
+    assert not (vault / "Index").exists()
 
     spec = (vault / ARTICLE_ROOT / "Spec Driven Development.md").read_text(encoding="utf-8")
     daily = (vault / ARTICLE_ROOT / "Daily" / "Standup.md").read_text(encoding="utf-8")

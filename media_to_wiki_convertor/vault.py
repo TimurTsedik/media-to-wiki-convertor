@@ -27,6 +27,7 @@ LEGACY_MANAGED_PATHS = (
     "90 Transcripts",
     "90 Transcripts.md",
     "Course Materials",
+    "00 Home.md",
 )
 
 MANAGED_DIRS = (
