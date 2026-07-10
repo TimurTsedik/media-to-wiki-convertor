@@ -1021,7 +1021,11 @@ def build_vault(config: PipelineConfig) -> int:
     event_started_at = start_run_event(events, "build-vault", "vault", "vault build start")
     say(f"Vault build start at {format_wall_time(event_started_at)}: {config.paths.vault}")
     try:
-        result = build_obsidian_vault(config.paths.raw_data, config.paths.vault)
+        result = build_obsidian_vault(
+            config.paths.raw_data,
+            config.paths.vault,
+            output_language=config.wiki.language,
+        )
     except Exception as exc:
         elapsed = format_elapsed(time.monotonic() - started_at)
         finished_at = finish_run_event(

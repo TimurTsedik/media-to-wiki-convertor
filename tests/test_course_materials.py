@@ -65,6 +65,25 @@ def test_build_course_material_prompt_is_source_bound_and_uses_course_shape() ->
     assert "video-a" in prompt
 
 
+def test_build_course_material_prompt_localizes_required_headings_to_english() -> None:
+    prompt = build_course_material_prompt(
+        sample_course_source_pack(),
+        known_titles=["Clean Architecture", "Message broker"],
+        output_language="en",
+    )
+
+    assert "This page belongs to the \"Course Reference Materials\" section." in prompt
+    assert "## Quick Summary" in prompt
+    assert "## Section Map" in prompt
+    assert "## Course Topics" in prompt
+    assert "## Related Materials" in prompt
+    assert 'line "Sources:" with links to chunks' in prompt
+    assert "## Коротко" not in prompt
+    assert "## Карта раздела" not in prompt
+    assert "## Подтемы курса" not in prompt
+    assert "## Связанные материалы" not in prompt
+
+
 def test_build_course_material_prompt_compacts_large_source_packs() -> None:
     source_pack = sample_course_source_pack()
     source_pack["topics"] = [

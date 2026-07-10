@@ -9,6 +9,7 @@ import shutil
 from typing import Any
 from urllib.parse import quote
 
+from media_to_wiki_convertor.labels import heading_translation_map, label_aliases, wiki_labels
 from media_to_wiki_convertor.manifest import VideoRecord, read_manifest
 
 
@@ -38,7 +39,7 @@ class VaultBuildResult:
     indexes: int
 
 
-def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
+def build_obsidian_vault(raw_data: Path, vault: Path, output_language: str = "ru") -> VaultBuildResult:
     pages = read_json_list(raw_data / "article_plan" / "pages.json")
     if not pages:
         raise ValueError("No article plan pages found. Run build-article-plan first.")
@@ -61,6 +62,7 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
         draft_path = draft_dir / f"{page['slug']}.md"
         output_path = vault / note_path_for_title(str(page["title"]))
         markdown = draft_path.read_text(encoding="utf-8")
+        markdown = localize_known_markdown_headings(markdown, output_language)
         markdown, unknown_links = rewrite_article_links(markdown, link_targets)
         for unknown_link in unknown_links:
             unlinked_mentions[unknown_link].add(str(page["title"]))
@@ -75,8 +77,8 @@ def build_obsidian_vault(raw_data: Path, vault: Path) -> VaultBuildResult:
     source_notes = write_source_notes(raw_data, vault, source_pages, records_by_id)
     transcript_notes = write_transcript_notes(raw_data, vault, source_pages)
     indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions, records_by_id)
-    write_course_materials(raw_data, vault, pages)
-    write_home(raw_data, vault, pages, source_notes, transcript_notes)
+    write_course_materials(raw_data, vault, pages, output_language=output_language)
+    write_home(raw_data, vault, pages, source_notes, transcript_notes, output_language=output_language)
 
     return VaultBuildResult(
         vault=vault,
@@ -191,6 +193,27 @@ def yaml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def localize_known_markdown_headings(markdown: str, output_language: str = "ru") -> str:
+    translations = heading_translation_map(output_language)
+    if not translations:
+        return markdown
+
+    def replace(match: re.Match[str]) -> str:
+        marker = match.group("marker")
+        title = match.group("title").strip()
+        localized_title = translations.get(title)
+        if localized_title is None:
+            return match.group(0)
+        return f"{marker} {localized_title}"
+
+    return re.sub(
+        r"^(?P<marker>#{2,6})\s+(?P<title>.+?)\s*$",
+        replace,
+        markdown,
+        flags=re.M,
+    )
+
+
 def write_indexes(
     raw_data: Path,
     vault: Path,
@@ -214,8 +237,10 @@ def write_home(
     pages: list[dict[str, Any]],
     source_notes: int,
     transcript_notes: int,
+    output_language: str = "ru",
 ) -> None:
     summary = read_json_object(raw_data / "article_plan" / "summary.json")
+    labels = wiki_labels(output_language)
     has_catalog = bool(read_json_list(raw_data / "catalog" / "categories.json"))
     has_course_materials = bool(read_json_list(raw_data / "course_plan" / "chapters.json"))
     chunks_count = count_files(raw_data / "chunks", "*.json")
@@ -229,7 +254,7 @@ def write_home(
         navigation.append("- [[Index/Catalog|Catalog]]")
     if has_course_materials:
         navigation.append(
-            "- [[Course Materials/00 Справочные материалы по курсу|Справочные материалы по курсу]]"
+            f"- [[Course Materials/00 {labels.course_materials_title}|{labels.course_materials_title}]]"
         )
     navigation.extend(
         [
@@ -385,17 +410,23 @@ def render_catalog_category(category: dict[str, Any], known_titles: set[str]) ->
     return "\n".join(lines).rstrip() + "\n"
 
 
-def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, Any]]) -> int:
+def write_course_materials(
+    raw_data: Path,
+    vault: Path,
+    pages: list[dict[str, Any]],
+    output_language: str = "ru",
+) -> int:
     chapters = read_json_list(raw_data / "course_plan" / "chapters.json")
     if not chapters:
         return 0
 
+    labels = wiki_labels(output_language)
     known_titles = {str(page.get("title", "")) for page in pages}
     source_alias_targets = course_article_source_alias_targets(pages)
     course_link_targets = {title: note_target_for_title(title) for title in known_titles}
     write_text(
-        vault / "Course Materials" / "00 Справочные материалы по курсу.md",
-        render_course_materials_index(chapters),
+        vault / "Course Materials" / f"00 {labels.course_materials_title}.md",
+        render_course_materials_index(chapters, output_language=output_language),
     )
     for chapter in chapters:
         key = str(chapter.get("key", "")).strip() or sanitize_filename_part(
@@ -404,21 +435,28 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
         draft_path = raw_data / "course_materials" / f"{key}.md"
         if draft_path.exists() and draft_path.stat().st_size > 0:
             markdown = rewrite_course_material_links(
-                draft_path.read_text(encoding="utf-8"),
+                localize_known_markdown_headings(
+                    draft_path.read_text(encoding="utf-8"),
+                    output_language,
+                ),
                 course_link_targets,
                 source_targets=course_chapter_source_targets(chapter),
                 source_alias_targets=source_alias_targets,
             )
-            appendix = render_course_chapter_reference_appendix(chapter)
+            appendix = render_course_chapter_reference_appendix(
+                chapter,
+                output_language=output_language,
+            )
             if appendix:
                 markdown = markdown.rstrip() + "\n\n" + appendix
             markdown = rewrite_course_material_map_links(
                 markdown,
                 chapter_key=key,
                 link_targets=course_link_targets,
+                output_language=output_language,
             )
         else:
-            markdown = render_course_chapter(chapter, known_titles)
+            markdown = render_course_chapter(chapter, known_titles, output_language=output_language)
         write_text(
             vault / "Course Materials" / f"{key}.md",
             markdown,
@@ -426,8 +464,12 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
     return 1 + len(chapters)
 
 
-def render_course_materials_index(chapters: list[dict[str, Any]]) -> str:
-    lines = ["# Справочные материалы по курсу", ""]
+def render_course_materials_index(
+    chapters: list[dict[str, Any]],
+    output_language: str = "ru",
+) -> str:
+    labels = wiki_labels(output_language)
+    lines = [f"# {labels.course_materials_title}", ""]
     for chapter in chapters:
         key = str(chapter.get("key", "chapter"))
         title = str(chapter.get("title", "Untitled"))
@@ -440,12 +482,17 @@ def render_course_materials_index(chapters: list[dict[str, Any]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_course_chapter(chapter: dict[str, Any], known_titles: set[str]) -> str:
+def render_course_chapter(
+    chapter: dict[str, Any],
+    known_titles: set[str],
+    output_language: str = "ru",
+) -> str:
     title = str(chapter.get("title", "Untitled"))
+    labels = wiki_labels(output_language)
     lines = [
         f"# {title}",
         "",
-        "## Карта раздела",
+        f"## {labels.course_section_map}",
         "",
     ]
     articles = chapter.get("articles", [])
@@ -458,9 +505,9 @@ def render_course_chapter(chapter: dict[str, Any], known_titles: set[str]) -> st
                 f"mentions={int(article.get('count', 0))}"
             )
     else:
-        lines.append("Пока нет отдельных wiki-статей.")
+        lines.append(labels.no_course_articles)
 
-    lines.extend(["", "## Подтемы курса", ""])
+    lines.extend(["", f"## {labels.course_topics}", ""])
     topics = chapter.get("topics", [])
     if topics:
         for topic in topics:
@@ -473,17 +520,21 @@ def render_course_chapter(chapter: dict[str, Any], known_titles: set[str]) -> st
                 f"- Mentions: {int(topic.get('count', 0))}{chunks_suffix}\n"
             )
     else:
-        lines.append("Пока нет подтем из расширенного списка.")
+        lines.append(labels.no_course_topics)
 
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_course_chapter_reference_appendix(chapter: dict[str, Any]) -> str:
+def render_course_chapter_reference_appendix(
+    chapter: dict[str, Any],
+    output_language: str = "ru",
+) -> str:
     topics = chapter.get("topics", [])
     if not topics:
         return ""
 
-    lines = ["## Полный список подтем и источников", ""]
+    labels = wiki_labels(output_language)
+    lines = [f"## {labels.full_topic_source_index}", ""]
     for topic in topics:
         if not isinstance(topic, dict):
             continue
@@ -532,15 +583,24 @@ def rewrite_course_material_map_links(
     markdown: str,
     chapter_key: str,
     link_targets: dict[str, str],
+    output_language: str = "ru",
 ) -> str:
-    match = re.search(r"^## Карта раздела\n(?P<body>.*?)(?=^## |\Z)", markdown, flags=re.M | re.S)
+    labels = wiki_labels(output_language)
+    section_map_pattern = markdown_h2_section_pattern(
+        label_aliases("course_section_map", output_language)
+    )
+    match = re.search(section_map_pattern, markdown, flags=re.M | re.S)
     if not match:
         return markdown
 
+    section_map_heading = match.group("heading")
     headings = course_material_heading_titles(markdown)
-    has_reference_appendix = bool(
-        re.search(r"^## Полный список подтем и источников\s*$", markdown, flags=re.M)
+    reference_appendix_heading = find_h2_heading(
+        markdown,
+        label_aliases("full_topic_source_index", output_language),
     )
+    has_reference_appendix = bool(reference_appendix_heading)
+    reference_anchor = reference_appendix_heading or labels.full_topic_source_index
     rewritten_lines: list[str] = []
     changed = False
     for line in match.group("body").splitlines():
@@ -565,7 +625,7 @@ def rewrite_course_material_map_links(
             changed = True
         elif has_reference_appendix:
             rewritten_lines.append(
-                f"- [[Course Materials/{chapter_key}#Полный список подтем и источников|{label}]]"
+                f"- [[Course Materials/{chapter_key}#{reference_anchor}|{label}]]"
             )
             changed = True
         else:
@@ -574,10 +634,21 @@ def rewrite_course_material_map_links(
     if not changed:
         return markdown
 
-    replacement = "## Карта раздела\n" + "\n".join(rewritten_lines)
+    replacement = f"## {section_map_heading}\n" + "\n".join(rewritten_lines)
     if match.group("body").endswith("\n"):
         replacement += "\n"
     return markdown[: match.start()] + replacement + markdown[match.end() :]
+
+
+def markdown_h2_section_pattern(headings: list[str]) -> str:
+    alternatives = "|".join(re.escape(heading) for heading in headings)
+    return rf"^##\s+(?P<heading>{alternatives})\s*\n(?P<body>.*?)(?=^##\s+|\Z)"
+
+
+def find_h2_heading(markdown: str, headings: list[str]) -> str | None:
+    alternatives = "|".join(re.escape(heading) for heading in headings)
+    match = re.search(rf"^##\s+(?P<heading>{alternatives})\s*$", markdown, flags=re.M)
+    return match.group("heading") if match else None
 
 
 def course_material_heading_titles(markdown: str) -> set[str]:

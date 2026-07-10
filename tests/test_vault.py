@@ -328,6 +328,36 @@ def test_rewrite_course_material_map_links_fuzzy_matches_heading_titles() -> Non
     assert "- [[Course Materials/devops#CI/CD и monorepository|CI/CD]]" in rewritten
 
 
+def test_rewrite_course_material_map_links_handles_english_section_headings() -> None:
+    markdown = """# DevOps
+
+## Section Map
+- [[Spec Driven Development]]
+- CI/CD
+- Missing Topic
+
+## Course Topics
+
+### CI/CD and monorepository
+Text.
+
+## Full Topic and Source Index
+
+- Missing Topic
+"""
+
+    rewritten = rewrite_course_material_map_links(
+        markdown,
+        chapter_key="devops",
+        link_targets={"Spec Driven Development": "Wiki/Spec Driven Development"},
+    )
+
+    assert "- [[Wiki/Spec Driven Development|Spec Driven Development]]" in rewritten
+    assert "- [[Course Materials/devops#CI/CD and monorepository|CI/CD]]" in rewritten
+    assert "- [[Course Materials/devops#Full Topic and Source Index|Missing Topic]]" in rewritten
+    assert "## Section Map" in rewritten
+
+
 def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path) -> None:
     raw_data = tmp_path / "raw data"
     vault = tmp_path / "vault"
@@ -409,6 +439,73 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert "[SRT](" in transcript_note
     assert "[JSON](" in transcript_note
     assert "[[Sources/Chunks/video-a/0001|video-a/0001]]" in transcript_note
+
+
+def test_build_obsidian_vault_localizes_course_materials_to_english(tmp_path: Path) -> None:
+    raw_data = tmp_path / "raw data"
+    vault = tmp_path / "vault"
+    seed_raw_data(raw_data)
+    (raw_data / "course_materials").mkdir(parents=True, exist_ok=True)
+    (raw_data / "course_materials" / "software-engineering.md").unlink()
+
+    build_obsidian_vault(raw_data, vault, output_language="en")
+
+    assert (vault / "Course Materials" / "00 Course Reference Materials.md").exists()
+    course_index = (vault / "Course Materials" / "00 Course Reference Materials.md").read_text(
+        encoding="utf-8"
+    )
+    course_chapter = (vault / "Course Materials" / "software-engineering.md").read_text(
+        encoding="utf-8"
+    )
+    home = (vault / "00 Home.md").read_text(encoding="utf-8")
+
+    assert "# Course Reference Materials" in course_index
+    assert "[[Course Materials/00 Course Reference Materials|Course Reference Materials]]" in home
+    assert "## Section Map" in course_chapter
+    assert "## Course Topics" in course_chapter
+    assert "No standalone wiki articles yet." not in course_chapter
+    assert "## Карта раздела" not in course_chapter
+    assert "## Подтемы курса" not in course_chapter
+
+
+def test_build_obsidian_vault_localizes_existing_draft_headings_to_english(tmp_path: Path) -> None:
+    raw_data = tmp_path / "raw data"
+    vault = tmp_path / "vault"
+    seed_raw_data(raw_data)
+    (raw_data / "course_materials" / "software-engineering.md").write_text(
+        """# Software Engineering
+
+## Коротко
+LLM draft.
+
+## Карта раздела
+- [[Spec Driven Development]]
+- Deferred Topic
+
+## Подтемы курса
+
+### Deferred Topic
+Text.
+""",
+        encoding="utf-8",
+    )
+
+    build_obsidian_vault(raw_data, vault, output_language="en")
+
+    article = (vault / "Wiki" / "Spec Driven Development.md").read_text(encoding="utf-8")
+    course_chapter = (vault / "Course Materials" / "software-engineering.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "## Sources" in article
+    assert "## Источники" not in article
+    assert "## Quick Summary" in course_chapter
+    assert "## Section Map" in course_chapter
+    assert "## Course Topics" in course_chapter
+    assert "## Full Topic and Source Index" in course_chapter
+    assert "## Коротко" not in course_chapter
+    assert "## Карта раздела" not in course_chapter
+    assert "## Подтемы курса" not in course_chapter
 
 
 def test_build_obsidian_vault_omits_catalog_link_when_catalog_is_missing(tmp_path: Path) -> None:

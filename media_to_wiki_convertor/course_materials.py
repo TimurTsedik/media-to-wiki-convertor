@@ -15,6 +15,7 @@ from media_to_wiki_convertor.knowledge import (
     validate_api_key,
     validate_openai_api_key,
 )
+from media_to_wiki_convertor.labels import wiki_labels
 
 DEFAULT_MAX_PROMPT_TOPICS = 8
 DEFAULT_MAX_CHUNK_CHARS = 350
@@ -274,7 +275,40 @@ def build_course_material_prompt(
         max_chunk_chars=max_chunk_chars,
     )
     chapter = prompt_pack.get("chapter", {})
+    labels = wiki_labels(output_language)
     known_links = "\n".join(f"- [[{title}]]" for title in known_titles)
+    if labels.sources == "Sources":
+        course_section_note = 'This page belongs to the "Course Reference Materials" section.'
+        summary_note = "3-6 sentences: what connects this chapter's topics and why it matters."
+        map_note = (
+            "List links to existing wiki articles from COURSE_SOURCE_PACK. "
+            "Do not invent new wiki articles."
+        )
+        topic_note = "Create third-level subsections for important subtopics."
+        topic_requirements = """In each subsection:
+- 2-5 sentences based on the source material
+- bullets with practical notes, if they exist in sources
+- line "Sources:" with links to chunks"""
+        related_note = (
+            "Links only to KNOWN_ARTICLE_TITLES when the relationship is explicit in "
+            "COURSE_SOURCE_PACK."
+        )
+    else:
+        course_section_note = 'Это страница из раздела "Справочные материалы по курсу".'
+        summary_note = "3-6 предложений: что объединяет темы этой главы и зачем она нужна."
+        map_note = (
+            "Список ссылок на существующие wiki-статьи из COURSE_SOURCE_PACK. "
+            "Не придумывай новые wiki-статьи."
+        )
+        topic_note = "Для важных подтем сделай подразделы третьего уровня."
+        topic_requirements = """В каждом подразделе:
+- 2-5 предложений по материалам источников
+- bullets с практическими замечаниями, если они есть в sources
+- строка "Источники:" со ссылками на chunks"""
+        related_note = (
+            "Ссылки только на KNOWN_ARTICLE_TITLES, если связь явно следует из "
+            "COURSE_SOURCE_PACK."
+        )
     return f"""COURSE CHAPTER:
 title: {chapter.get("title", "")}
 key: {chapter.get("key", "")}
@@ -286,7 +320,7 @@ Important:
 Используй только COURSE_SOURCE_PACK.
 Не добавляй знания, которых нет в COURSE_SOURCE_PACK.
 Пиши на языке: {output_language}.
-Это страница из раздела "Справочные материалы по курсу".
+{course_section_note}
 Ставь Obsidian-ссылки на существующие статьи только из KNOWN_ARTICLE_TITLES.
 Если упоминаешь существующую статью, используй формат [[Название статьи]].
 Для каждой подтемы сохраняй ссылки на source chunks.
@@ -295,21 +329,18 @@ Important:
 Required Markdown shape:
 # {chapter.get("title", "")}
 
-## Коротко
-3-6 предложений: что объединяет темы этой главы и зачем она нужна.
+## {labels.course_summary}
+{summary_note}
 
-## Карта раздела
-Список ссылок на существующие wiki-статьи из COURSE_SOURCE_PACK. Не придумывай новые wiki-статьи.
+## {labels.course_section_map}
+{map_note}
 
-## Подтемы курса
-Для важных подтем сделай подразделы третьего уровня.
-В каждом подразделе:
-- 2-5 предложений по материалам источников
-- bullets с практическими замечаниями, если они есть в sources
-- строка "Источники:" со ссылками на chunks
+## {labels.course_topics}
+{topic_note}
+{topic_requirements}
 
-## Связанные материалы
-Ссылки только на KNOWN_ARTICLE_TITLES, если связь явно следует из COURSE_SOURCE_PACK.
+## {labels.course_related}
+{related_note}
 
 KNOWN_ARTICLE_TITLES:
 {known_links}

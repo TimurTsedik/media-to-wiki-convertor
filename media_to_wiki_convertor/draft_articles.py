@@ -14,6 +14,7 @@ from media_to_wiki_convertor.knowledge import (
     validate_api_key,
     validate_openai_api_key,
 )
+from media_to_wiki_convertor.labels import wiki_labels
 
 
 def build_article_system_prompt(output_language: str = "ru") -> str:
@@ -233,7 +234,12 @@ def build_article_prompt(
     output_language: str = "ru",
 ) -> str:
     article = source_pack.get("article", {})
+    labels = wiki_labels(output_language)
     known_links = "\n".join(f"- [[{title}]]" for title in known_titles)
+    summary_instruction = "2-4 sentences." if labels.sources == "Sources" else "2-4 предложения."
+    source_format_intro = (
+        "Source list format:" if labels.sources == "Sources" else "Список источников в формате:"
+    )
     return f"""ARTICLE:
 title: {article.get("title", "")}
 aliases: {", ".join(article.get("aliases", []))}
@@ -252,21 +258,21 @@ Important:
 Required Markdown shape:
 # {article.get("title", "")}
 
-## Коротко
-2-4 предложения.
+## {labels.article_summary}
+{summary_instruction}
 
-## Зачем это важно
+## {labels.article_why}
 
-## Основные идеи
+## {labels.article_core_ideas}
 
-## Практики
+## {labels.article_practices}
 
-## Типичные ошибки
+## {labels.article_mistakes}
 
-## Связанные темы
+## {labels.article_related}
 
-## Источники
-Список источников в формате:
+## {labels.sources}
+{source_format_intro}
 - video_id/chunk_id start-end
 
 KNOWN_ARTICLE_TITLES:

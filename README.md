@@ -188,7 +188,7 @@ language = "en"
 language = "en"
 ```
 
-`[transcription].language` is passed to the transcription engine. `[wiki].language` controls the language used for extracted knowledge and drafted articles.
+`[transcription].language` is passed to the transcription engine. `[wiki].language` controls the language used for extracted knowledge, drafted articles, course materials, and generated wiki section headings.
 
 Inspect the plan before spending compute or API budget:
 
@@ -325,6 +325,7 @@ The vault contains:
 Course material pages are post-processed during `build-vault`:
 
 - source references such as `video_id:abc123#0004`, `[abc123#0004]`, `source://...`, and model-generated Markdown source links are normalized to `[[Sources/Chunks/abc123/0004|abc123/0004]]`
+- known generated section headings are localized to `[wiki].language`, so English vaults do not keep Russian template headings such as `Карта раздела` or `Источники`
 - unknown course-map entries are linked to a matching local chapter heading when possible
 - remaining map entries link to the chapter's full source appendix instead of becoming dead text
 - existing vault links are preserved
@@ -338,7 +339,7 @@ Course material pages are post-processed during `build-vault`:
 Expected result:
 
 ```text
-131 passed
+136 passed
 ```
 
 ## Notes

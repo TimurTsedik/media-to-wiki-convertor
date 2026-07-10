@@ -66,8 +66,27 @@ def test_build_article_prompt_is_source_bound_and_names_known_links() -> None:
     assert "Daily / Standup" in prompt
     assert "KNOWN_ARTICLE_TITLES" in prompt
     assert "[[Sprint planning]]" in prompt
-    assert "## Источники" in prompt
+    assert "## Sources" in prompt
     assert "abc123" in prompt
+
+
+def test_build_article_prompt_localizes_required_headings_to_english() -> None:
+    prompt = build_article_prompt(
+        sample_source_pack(),
+        known_titles=["Daily / Standup"],
+        output_language="en",
+    )
+
+    assert "## Quick Summary" in prompt
+    assert "## Why It Matters" in prompt
+    assert "## Core Ideas" in prompt
+    assert "## Practices" in prompt
+    assert "## Common Mistakes" in prompt
+    assert "## Related Topics" in prompt
+    assert "## Sources" in prompt
+    assert "## Коротко" not in prompt
+    assert "## Зачем это важно" not in prompt
+    assert "## Основные идеи" not in prompt
 
 
 def test_openai_article_client_builds_responses_request_and_returns_markdown() -> None:
