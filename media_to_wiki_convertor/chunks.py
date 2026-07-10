@@ -295,17 +295,29 @@ def existing_matching_chunk_count(
     if not json_paths:
         return 0
 
-    try:
-        first_payload = json.loads(json_paths[0].read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    expected_names = [f"{index:04d}.json" for index in range(1, len(json_paths) + 1)]
+    if [path.name for path in json_paths] != expected_names:
         return 0
 
-    if first_payload.get("chunk_seconds") != chunk_seconds:
-        return 0
-    if first_payload.get("overlap_seconds") != overlap_seconds:
-        return 0
-    if first_payload.get("chunking_mode", "time") != chunking_mode:
-        return 0
+    for json_path in json_paths:
+        md_path = json_path.with_suffix(".md")
+        if not md_path.exists() or md_path.stat().st_size == 0:
+            return 0
+        try:
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return 0
+
+        if str(payload.get("chunk_id", "")) != json_path.stem:
+            return 0
+        if payload.get("chunk_seconds") != chunk_seconds:
+            return 0
+        if payload.get("overlap_seconds") != overlap_seconds:
+            return 0
+        if payload.get("chunking_mode", "time") != chunking_mode:
+            return 0
+        if not str(payload.get("text", "")).strip():
+            return 0
 
     return len(json_paths)
 

@@ -6,6 +6,7 @@ from media_to_wiki_convertor.chunks import (
     chunk_transcript_record,
     count_existing_chunks,
     format_seconds,
+    existing_matching_chunk_count,
     read_transcript_segments,
 )
 from media_to_wiki_convertor.manifest import VideoRecord
@@ -158,13 +159,17 @@ def test_chunk_transcript_record_skips_existing_chunks_with_same_settings(tmp_pa
     (output_dir / "0001.json").write_text(
         """
 {
+  "video_id": "abc123",
+  "chunk_id": "0001",
   "chunk_seconds": 600,
   "overlap_seconds": 120,
+  "chunking_mode": "time",
   "text": "existing"
 }
 """.strip(),
         encoding="utf-8",
     )
+    (output_dir / "0001.md").write_text("existing note", encoding="utf-8")
 
     result = chunk_transcript_record(
         make_record(),
@@ -176,6 +181,32 @@ def test_chunk_transcript_record_skips_existing_chunks_with_same_settings(tmp_pa
     assert result.skipped is True
     assert result.created == 1
     assert (output_dir / "0001.json").read_text(encoding="utf-8").count("existing") == 1
+
+
+def test_existing_matching_chunk_count_rejects_partial_or_invalid_chunk_sets(tmp_path: Path) -> None:
+    output_dir = tmp_path / "chunks" / "abc123"
+    output_dir.mkdir(parents=True)
+    (output_dir / "0001.json").write_text(
+        """
+{
+  "video_id": "abc123",
+  "chunk_id": "0001",
+  "chunk_seconds": 600,
+  "overlap_seconds": 120,
+  "chunking_mode": "time",
+  "text": "existing"
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    assert existing_matching_chunk_count(output_dir, 600, 120) == 0
+
+    (output_dir / "0001.md").write_text("markdown sidecar", encoding="utf-8")
+    assert existing_matching_chunk_count(output_dir, 600, 120) == 1
+
+    (output_dir / "0002.json").write_text("{not json", encoding="utf-8")
+    assert existing_matching_chunk_count(output_dir, 600, 120) == 0
 
 
 def test_count_existing_chunks_counts_json_files(tmp_path: Path) -> None:

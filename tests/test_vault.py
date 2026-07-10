@@ -466,6 +466,14 @@ def test_build_obsidian_vault_localizes_course_materials_to_english(tmp_path: Pa
     assert "No standalone wiki articles yet." not in course_chapter
     assert "## Карта раздела" not in course_chapter
     assert "## Подтемы курса" not in course_chapter
+    assert "# Media To Wiki Vault" in home
+    assert "## Navigation" in home
+    assert "## Vault Status" in home
+    assert "Larchenko" not in home
+
+    article = (vault / "Wiki" / "Spec Driven Development.md").read_text(encoding="utf-8")
+    assert "## Source Transcripts" in article
+    assert "## Исходные транскрибации" not in article
 
 
 def test_build_obsidian_vault_localizes_existing_draft_headings_to_english(tmp_path: Path) -> None:

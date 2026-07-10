@@ -20,6 +20,11 @@ def test_default_pipeline_drafts_course_materials_after_articles() -> None:
     assert STAGE_NAMES.index("draft-course-materials") < STAGE_NAMES.index("build-vault")
 
 
+def test_default_pipeline_runs_healthcheck_before_llm_extraction() -> None:
+    assert STAGE_NAMES.index("chunk-transcripts") < STAGE_NAMES.index("healthcheck")
+    assert STAGE_NAMES.index("healthcheck") < STAGE_NAMES.index("extract-knowledge")
+
+
 def test_select_stages_can_start_from_stage() -> None:
     assert select_stages(from_stage="transcribe") == STAGE_NAMES[STAGE_NAMES.index("transcribe") :]
 

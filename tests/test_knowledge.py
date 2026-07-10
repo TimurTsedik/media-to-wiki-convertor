@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from urllib import error
+from urllib import error, request
 from io import BytesIO
 
 from media_to_wiki_convertor.knowledge import (
@@ -174,6 +174,34 @@ def test_default_transport_value_errors_are_provider_generic(monkeypatch) -> Non
         assert "OPENAI_API_KEY" not in message
     else:
         raise AssertionError("ValueError was not converted to RuntimeError")
+
+
+def test_default_transport_retries_transient_url_errors(monkeypatch) -> None:
+    attempts = 0
+
+    def flaky_urlopen(req: request.Request, timeout: int):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise error.URLError("temporary outage")
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def read(self) -> bytes:
+                return b'{"ok": true}'
+
+        return Response()
+
+    monkeypatch.setattr("media_to_wiki_convertor.knowledge.request.urlopen", flaky_urlopen)
+    monkeypatch.setattr("media_to_wiki_convertor.knowledge.time.sleep", lambda seconds: None)
+
+    assert default_transport("https://api.example.test", {}, {}) == {"ok": True}
+    assert attempts == 2
 
 
 def test_anthropic_and_gemini_knowledge_clients_name_provider_api_key_envs() -> None:

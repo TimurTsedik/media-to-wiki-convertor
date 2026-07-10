@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import time
 from typing import Any, Callable
 from urllib import error, request
 from urllib.parse import quote, urlencode
@@ -376,17 +377,30 @@ class GeminiKnowledgeClient:
         return json.loads(parse_gemini_text(response))
 
 
+TRANSIENT_HTTP_CODES = {408, 429, 500, 502, 503, 504}
+
+
 def default_transport(url: str, headers: dict[str, str], payload: dict[str, Any]) -> dict[str, Any]:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with request.urlopen(req, timeout=120) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"LLM provider API error {exc.code}: {body}") from exc
-    except ValueError as exc:
-        raise RuntimeError("Invalid LLM provider request. Check configured API key formatting.") from exc
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with request.urlopen(req, timeout=120) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            if exc.code not in TRANSIENT_HTTP_CODES or attempt == max_attempts:
+                raise RuntimeError(f"LLM provider API error {exc.code}: {body}") from exc
+            time.sleep(2 ** (attempt - 1))
+        except error.URLError as exc:
+            if attempt == max_attempts:
+                raise RuntimeError(f"LLM provider network error: {exc.reason}") from exc
+            time.sleep(2 ** (attempt - 1))
+        except ValueError as exc:
+            raise RuntimeError("Invalid LLM provider request. Check configured API key formatting.") from exc
+
+    raise RuntimeError("LLM provider request failed after retries.")
 
 
 def parse_response_output(response: dict[str, Any]) -> dict[str, Any]:

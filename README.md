@@ -35,6 +35,7 @@ videos
   -> audio
   -> transcripts
   -> overlapping chunks
+  -> artifact healthcheck
   -> structured knowledge
   -> article plan
   -> catalog
@@ -236,6 +237,7 @@ You can also run stages one by one.
 | `validate-audio` | Checks extracted audio files before transcription. |
 | `transcribe` | Transcribes audio locally with `mlx-whisper`. |
 | `chunk-transcripts` | Splits transcript JSON into overlapping chunk files. |
+| `healthcheck` | Validates resumable raw-data artifacts before continuing a run. |
 | `extract-knowledge` | Uses the configured LLM provider to extract topics, terms, practices, and article candidates. |
 | `build-topic-index` | Builds deterministic indexes from extracted knowledge. |
 | `build-article-plan` | Selects article pages and source packs. Defaults to keeping single-source topics; use `--min-sources 2` for stricter filtering. |
@@ -264,6 +266,7 @@ media-to-wiki-convertor discover
 media-to-wiki-convertor extract-audio
 media-to-wiki-convertor transcribe
 media-to-wiki-convertor chunk-transcripts
+media-to-wiki-convertor healthcheck
 media-to-wiki-convertor extract-knowledge --sample-per-video 1
 media-to-wiki-convertor build-topic-index
 media-to-wiki-convertor build-article-plan
@@ -460,6 +463,16 @@ Generated files are ignored by default:
 - `raw-data/`
 - `vault/`
 
+`build-vault` treats these vault folders as generated output and rewrites them on every run:
+
+- `Wiki/`
+- `Index/`
+- `Sources/`
+- `90 Transcripts/`
+- `Course Materials/`
+
+Keep manual Obsidian notes outside those managed folders, or commit/back them up before rebuilding the vault.
+
 The vault contains:
 
 - `00 Home.md`
@@ -482,7 +495,9 @@ Course material pages are post-processed during `build-vault`:
 ## Testing
 
 ```bash
+.venv/bin/python -m ruff check .
 .venv/bin/python -m pytest -q
+.venv/bin/media-to-wiki-convertor --help
 ```
 
 Expected result:

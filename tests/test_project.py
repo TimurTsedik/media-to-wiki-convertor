@@ -56,3 +56,19 @@ def test_update_project_config_changes_only_requested_values(tmp_path: Path) -> 
     assert 'vault = "./notes"' in text
     assert 'language = "en"' in text
     assert 'model = "mlx-community/whisper-medium"' in text
+
+
+def test_config_command_uses_global_config_path(tmp_path: Path, monkeypatch) -> None:
+    project_a = tmp_path / "project-a"
+    project_b = tmp_path / "project-b"
+    init_project(project_a)
+    init_project(project_b)
+    monkeypatch.chdir(project_a)
+
+    from media_to_wiki_convertor.cli import main
+
+    result = main(["--config", str(project_b / "config.toml"), "config", "--language", "en"])
+
+    assert result == 0
+    assert 'language = "ru"' in (project_a / "config.toml").read_text(encoding="utf-8")
+    assert 'language = "en"' in (project_b / "config.toml").read_text(encoding="utf-8")

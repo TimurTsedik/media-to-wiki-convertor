@@ -12,6 +12,7 @@ STAGE_NAMES = [
     "validate-audio",
     "transcribe",
     "chunk-transcripts",
+    "healthcheck",
     "extract-knowledge",
     "build-topic-index",
     "build-article-plan",

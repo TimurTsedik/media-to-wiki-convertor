@@ -11,6 +11,7 @@ from media_to_wiki_convertor.article_plan import (
     read_topic_pages,
     write_article_plan,
 )
+from media_to_wiki_convertor.artifacts import validate_artifacts
 from media_to_wiki_convertor.audio import audio_is_valid, count_existing_audio, extract_audio_for_record, has_ffmpeg
 from media_to_wiki_convertor.catalog import (
     build_catalog as build_catalog_payload,
@@ -110,7 +111,7 @@ def print_status(config: PipelineConfig) -> None:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
 
-    say("Larchenko KB pipeline")
+    say("Media To Wiki Convertor pipeline")
     say(f"video_source: {config.paths.video_source}")
     say(f"raw_data:     {config.paths.raw_data}")
     say(f"vault:        {config.paths.vault}")
@@ -126,6 +127,19 @@ def print_status(config: PipelineConfig) -> None:
     say(f"course_chapters:{count_course_plan_chapters(config.paths.raw_data)}")
     say(f"draft_articles:{count_draft_articles(config.paths.raw_data)}")
     say(f"course_materials:{count_course_materials(config.paths.raw_data)}")
+
+
+def healthcheck(config: PipelineConfig) -> int:
+    ensure_raw_layout(config.paths.raw_data)
+    issues = validate_artifacts(config.paths.raw_data)
+    if not issues:
+        say("Healthcheck passed: no artifact issues found.")
+        return 0
+
+    say(f"Healthcheck failed: artifact_issues={len(issues)}")
+    for issue in issues:
+        say(f"- {issue.severity}: {issue.message}: {issue.path}")
+    return 1
 
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
@@ -433,7 +447,11 @@ def transcribe(config: PipelineConfig) -> int:
     return 1 if failed else 0
 
 
-def chunk_transcripts(config: PipelineConfig, chunk_minutes: int, overlap_seconds: int) -> int:
+def chunk_transcripts(
+    config: PipelineConfig,
+    chunk_minutes: int | None,
+    overlap_seconds: int | None,
+) -> int:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
     if not records:
@@ -441,14 +459,18 @@ def chunk_transcripts(config: PipelineConfig, chunk_minutes: int, overlap_second
         say("Run `python3 -m media_to_wiki_convertor discover` or `import-list` first.")
         return 0
 
-    chunk_seconds = chunk_minutes * 60
+    selected_chunk_minutes = config.chunking.chunk_minutes if chunk_minutes is None else chunk_minutes
+    selected_overlap_seconds = (
+        config.chunking.overlap_seconds if overlap_seconds is None else overlap_seconds
+    )
+    chunk_seconds = selected_chunk_minutes * 60
     if chunk_seconds <= 0:
         say("--chunk-minutes must be positive.")
         return 1
-    if overlap_seconds < 0:
+    if selected_overlap_seconds < 0:
         say("--overlap-seconds must not be negative.")
         return 1
-    if overlap_seconds >= chunk_seconds:
+    if selected_overlap_seconds >= chunk_seconds:
         say("--overlap-seconds must be smaller than --chunk-minutes.")
         return 1
 
@@ -457,8 +479,8 @@ def chunk_transcripts(config: PipelineConfig, chunk_minutes: int, overlap_second
     failed = 0
     say(
         "Chunking settings: "
-        f"chunk_minutes={chunk_minutes}, "
-        f"overlap_seconds={overlap_seconds}"
+        f"chunk_minutes={selected_chunk_minutes}, "
+        f"overlap_seconds={selected_overlap_seconds}"
     )
     for index, record in enumerate(records, start=1):
         started_at = time.monotonic()
@@ -468,7 +490,7 @@ def chunk_transcripts(config: PipelineConfig, chunk_minutes: int, overlap_second
                 record,
                 config.paths.raw_data,
                 chunk_seconds=chunk_seconds,
-                overlap_seconds=overlap_seconds,
+                overlap_seconds=selected_overlap_seconds,
                 on_progress=lambda message: say(f"  {message}"),
             )
         except Exception as exc:
@@ -501,14 +523,14 @@ def add_chunk_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--chunk-minutes",
         type=int,
-        default=10,
-        help="Target chunk window in minutes. Default: 10.",
+        default=None,
+        help="Target chunk window in minutes. Defaults to [chunking].chunk_minutes.",
     )
     parser.add_argument(
         "--overlap-seconds",
         type=int,
-        default=120,
-        help="Overlap between adjacent chunks in seconds. Default: 120.",
+        default=None,
+        help="Overlap between adjacent chunks in seconds. Defaults to [chunking].overlap_seconds.",
     )
 
 
@@ -1075,6 +1097,7 @@ def pipeline_stages() -> dict[str, PipelineStage]:
                 config.chunking.overlap_seconds,
             ),
         ),
+        "healthcheck": PipelineStage("healthcheck", lambda config: healthcheck(config)),
         "extract-knowledge": PipelineStage(
             "extract-knowledge",
             lambda config: extract_knowledge(config, None, None, None, False, False),
@@ -1139,6 +1162,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--yes", action="store_true")
 
     subparsers.add_parser("status", help="Show configured paths and current manifest count.")
+    subparsers.add_parser(
+        "healthcheck",
+        help="Validate resumable raw-data artifacts before continuing a pipeline run.",
+    )
     discover_parser = subparsers.add_parser(
         "discover",
         help="Scan the read-only video source and write manifest.",
@@ -1333,8 +1360,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "config":
+        config_path = args.config or Path("config.toml")
         update_project_config(
-            Path("config.toml"),
+            config_path,
             ProjectSettings(
                 videos=args.videos,
                 raw=args.raw,
@@ -1342,7 +1370,7 @@ def main(argv: list[str] | None = None) -> int:
                 language=args.language,
             ),
         )
-        say("Updated config.toml")
+        say(f"Updated {config_path}")
         return 0
 
     config = load_config(args.config)
@@ -1361,6 +1389,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "status":
         print_status(config)
         return 0
+    if args.command == "healthcheck":
+        return healthcheck(config)
     if args.command == "discover":
         discover(config, args.source)
         return 0

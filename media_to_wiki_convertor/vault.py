@@ -67,7 +67,12 @@ def build_obsidian_vault(raw_data: Path, vault: Path, output_language: str = "ru
         for unknown_link in unknown_links:
             unlinked_mentions[unknown_link].add(str(page["title"]))
         markdown = add_article_frontmatter(markdown, page)
-        markdown = add_article_transcript_sources(markdown, page, records_by_id)
+        markdown = add_article_transcript_sources(
+            markdown,
+            page,
+            records_by_id,
+            output_language=output_language,
+        )
         write_text(output_path, markdown)
 
         for source in page.get("sources", []):
@@ -75,8 +80,21 @@ def build_obsidian_vault(raw_data: Path, vault: Path, output_language: str = "ru
 
     add_catalog_source_pages(raw_data, source_pages)
     source_notes = write_source_notes(raw_data, vault, source_pages, records_by_id)
-    transcript_notes = write_transcript_notes(raw_data, vault, source_pages)
-    indexes = write_indexes(raw_data, vault, pages, source_pages, unlinked_mentions, records_by_id)
+    transcript_notes = write_transcript_notes(
+        raw_data,
+        vault,
+        source_pages,
+        output_language=output_language,
+    )
+    indexes = write_indexes(
+        raw_data,
+        vault,
+        pages,
+        source_pages,
+        unlinked_mentions,
+        records_by_id,
+        output_language=output_language,
+    )
     write_course_materials(raw_data, vault, pages, output_language=output_language)
     write_home(raw_data, vault, pages, source_notes, transcript_notes, output_language=output_language)
 
@@ -155,12 +173,14 @@ def add_article_transcript_sources(
     markdown: str,
     page: dict[str, Any],
     records_by_id: dict[str, VideoRecord],
+    output_language: str = "ru",
 ) -> str:
     sources = page.get("sources", [])
     if not sources:
         return markdown
 
-    lines = ["", "## Исходные транскрибации", ""]
+    labels = wiki_labels(output_language)
+    lines = ["", f"## {labels.source_transcripts}", ""]
     seen_video_ids: set[str] = set()
     for source in sources:
         video_id = str(source.get("video_id", ""))
@@ -171,7 +191,7 @@ def add_article_transcript_sources(
         if link:
             lines.append(f"- {link}")
 
-    lines.extend(["", "## Source chunks", ""])
+    lines.extend(["", f"## {labels.source_chunks}", ""])
     seen_chunks: set[tuple[str, str]] = set()
     for source in sources:
         video_id = str(source.get("video_id", ""))
@@ -221,13 +241,25 @@ def write_indexes(
     source_pages: dict[tuple[str, str], list[dict[str, Any]]],
     unlinked_mentions: dict[str, set[str]],
     records_by_id: dict[str, VideoRecord],
+    output_language: str = "ru",
 ) -> int:
     write_text(vault / "Index" / "Articles.md", render_articles_index(pages))
     write_text(vault / "Index" / "Domains.md", render_domains_index(pages))
     write_text(vault / "Index" / "Sources.md", render_sources_index(source_pages, records_by_id))
-    write_text(vault / "Index" / "Deferred Topics.md", render_deferred_index(raw_data))
-    write_text(vault / "Index" / "Unlinked Mentions.md", render_unlinked_mentions(unlinked_mentions))
-    catalog_indexes = write_catalog_indexes(raw_data, vault, pages)
+    write_text(
+        vault / "Index" / "Deferred Topics.md",
+        render_deferred_index(raw_data, output_language=output_language),
+    )
+    write_text(
+        vault / "Index" / "Unlinked Mentions.md",
+        render_unlinked_mentions(unlinked_mentions, output_language=output_language),
+    )
+    catalog_indexes = write_catalog_indexes(
+        raw_data,
+        vault,
+        pages,
+        output_language=output_language,
+    )
     return 5 + catalog_indexes
 
 
@@ -265,13 +297,13 @@ def write_home(
         ]
     )
     lines = [
-        "# Larchenko Training Wiki",
+        f"# {labels.vault_title}",
         "",
-        "## Навигация",
+        f"## {labels.navigation}",
         *navigation,
         "",
-        "## Статус базы",
-        f"- Wiki-статей: {len(pages)}",
+        f"## {labels.vault_status}",
+        f"- {labels.wiki_articles_count}: {len(pages)}",
         f"- Source notes: {source_notes}",
         f"- Transcript notes: {transcript_notes}",
         f"- Draft articles: {drafts_count}",
@@ -280,7 +312,7 @@ def write_home(
         f"- Topic pages before article planning: {summary.get('topic_pages', 0)}",
         f"- Deferred topics: {summary.get('deferred_pages', 0)}",
         "",
-        "## Основные статьи",
+        f"## {labels.main_articles}",
     ]
     for page in pages[:15]:
         lines.append(f"- {article_link(page)}")
@@ -336,7 +368,12 @@ def render_sources_index(
     return "\n".join(lines).rstrip() + "\n"
 
 
-def write_catalog_indexes(raw_data: Path, vault: Path, pages: list[dict[str, Any]]) -> int:
+def write_catalog_indexes(
+    raw_data: Path,
+    vault: Path,
+    pages: list[dict[str, Any]],
+    output_language: str = "ru",
+) -> int:
     categories = read_json_list(raw_data / "catalog" / "categories.json")
     if not categories:
         return 0
@@ -349,7 +386,11 @@ def write_catalog_indexes(raw_data: Path, vault: Path, pages: list[dict[str, Any
         )
         write_text(
             vault / "Index" / "Catalog" / f"{key}.md",
-            render_catalog_category(category, known_titles),
+            render_catalog_category(
+                category,
+                known_titles,
+                output_language=output_language,
+            ),
         )
     return 1 + len(categories)
 
@@ -369,8 +410,13 @@ def render_catalog_index(categories: list[dict[str, Any]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_catalog_category(category: dict[str, Any], known_titles: set[str]) -> str:
+def render_catalog_category(
+    category: dict[str, Any],
+    known_titles: set[str],
+    output_language: str = "ru",
+) -> str:
     title = str(category.get("title", "Untitled"))
+    labels = wiki_labels(output_language)
     lines = [
         f"# {title}",
         "",
@@ -391,7 +437,7 @@ def render_catalog_category(category: dict[str, Any], known_titles: set[str]) ->
                 f"mentions={int(article.get('count', 0))}"
             )
     else:
-        lines.append("Нет статей.")
+        lines.append(labels.no_catalog_articles)
 
     lines.extend(["", "## Catalog Topics", ""])
     topics = category.get("topics", [])
@@ -405,7 +451,7 @@ def render_catalog_category(category: dict[str, Any], known_titles: set[str]) ->
                 f"mentions={int(topic.get('count', 0))}{chunks_suffix}"
             )
     else:
-        lines.append("Нет отложенных тем.")
+        lines.append(labels.no_catalog_topics)
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -885,11 +931,12 @@ def catalog_topic_source_links(topic: dict[str, Any]) -> list[str]:
     return links
 
 
-def render_deferred_index(raw_data: Path) -> str:
+def render_deferred_index(raw_data: Path, output_language: str = "ru") -> str:
     deferred = read_json_list(raw_data / "article_plan" / "deferred.json")
+    labels = wiki_labels(output_language)
     lines = ["# Deferred Topics", ""]
     if not deferred:
-        lines.append("Нет отложенных тем.")
+        lines.append(labels.no_deferred_topics)
         return "\n".join(lines) + "\n"
 
     for item in deferred:
@@ -906,10 +953,14 @@ def render_deferred_index(raw_data: Path) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def render_unlinked_mentions(unlinked_mentions: dict[str, set[str]]) -> str:
+def render_unlinked_mentions(
+    unlinked_mentions: dict[str, set[str]],
+    output_language: str = "ru",
+) -> str:
+    labels = wiki_labels(output_language)
     lines = ["# Unlinked Mentions", ""]
     if not unlinked_mentions:
-        lines.append("Нет неразрешенных wiki-упоминаний.")
+        lines.append(labels.no_unlinked_mentions)
         return "\n".join(lines) + "\n"
 
     for mention in sorted(unlinked_mentions, key=str.casefold):
@@ -1005,12 +1056,14 @@ def write_transcript_notes(
     raw_data: Path,
     vault: Path,
     source_pages: dict[tuple[str, str], list[dict[str, Any]]],
+    output_language: str = "ru",
 ) -> int:
     records = read_manifest(raw_data)
     transcript_records = [record for record in records if transcript_paths(raw_data, record.video_id)]
+    labels = wiki_labels(output_language)
     lines = ["# 90 Transcripts", ""]
     if not transcript_records:
-        lines.append("Транскрипции пока не найдены.")
+        lines.append(labels.no_transcripts)
         write_text(vault / "90 Transcripts.md", "\n".join(lines) + "\n")
         return 0
 

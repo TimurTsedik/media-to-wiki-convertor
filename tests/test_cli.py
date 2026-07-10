@@ -149,10 +149,23 @@ def test_build_article_plan_default_keeps_single_source_topics() -> None:
     assert args.min_sources == 1
 
 
+def test_chunk_transcripts_parser_uses_config_defaults_until_overridden() -> None:
+    args = build_parser().parse_args(["chunk-transcripts"])
+
+    assert args.chunk_minutes is None
+    assert args.overlap_seconds is None
+
+
 def test_build_catalog_parser_accepts_command() -> None:
     args = build_parser().parse_args(["build-catalog"])
 
     assert args.command == "build-catalog"
+
+
+def test_healthcheck_parser_accepts_command() -> None:
+    args = build_parser().parse_args(["healthcheck"])
+
+    assert args.command == "healthcheck"
 
 
 def test_build_course_plan_parser_accepts_command() -> None:
