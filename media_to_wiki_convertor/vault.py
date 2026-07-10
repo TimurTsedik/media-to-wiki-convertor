@@ -16,6 +16,7 @@ MANAGED_DIRS = ("Wiki", "Index", "Sources", "90 Transcripts", "Course Materials"
 LINK_PATTERN = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 BRACKETED_SOURCE_REF_PATTERN = re.compile(r"\[([A-Za-z0-9_-]+):([A-Za-z0-9_-]+)\]")
 PREFIXED_SOURCE_REF_PATTERN = re.compile(r"\bsource:([A-Za-z0-9_-]+)[#/:]([A-Za-z0-9_-]+)")
+BARE_SOURCE_REF_PATTERN = re.compile(r"(?<![:/])\b([A-Za-z0-9_-]+)#([A-Za-z0-9_-]+)\b")
 INVALID_FILENAME_CHARS = set(':\\?#^[]|')
 
 
@@ -381,6 +382,7 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
         return 0
 
     known_titles = {str(page.get("title", "")) for page in pages}
+    source_alias_targets = course_article_source_alias_targets(pages)
     write_text(
         vault / "Course Materials" / "00 Справочные материалы по курсу.md",
         render_course_materials_index(chapters),
@@ -395,6 +397,7 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
                 draft_path.read_text(encoding="utf-8"),
                 {title: note_target_for_title(title) for title in known_titles},
                 source_targets=course_chapter_source_targets(chapter),
+                source_alias_targets=source_alias_targets,
             )
             appendix = render_course_chapter_reference_appendix(chapter)
             if appendix:
@@ -480,9 +483,11 @@ def rewrite_course_material_links(
     markdown: str,
     link_targets: dict[str, str],
     source_targets: set[tuple[str, str]] | None = None,
+    source_alias_targets: dict[tuple[str, str], tuple[str, str]] | None = None,
 ) -> str:
     known_vault_prefixes = ("Wiki/", "Sources/", "Course Materials/", "Index/", "90 Transcripts/")
     source_targets = source_targets or set()
+    source_alias_targets = source_alias_targets or {}
 
     def replace(match: re.Match[str]) -> str:
         target = match.group(1).strip()
@@ -500,16 +505,24 @@ def rewrite_course_material_links(
         return f"[[{rewritten_target}|{label}]]"
 
     rewritten = LINK_PATTERN.sub(replace, markdown)
-    rewritten = rewrite_course_material_source_refs(rewritten, source_targets)
+    rewritten = rewrite_course_material_source_refs(
+        rewritten,
+        source_targets,
+        source_alias_targets,
+    )
     return rewritten
 
 
 def rewrite_course_material_source_refs(
     markdown: str,
     source_targets: set[tuple[str, str]],
+    source_alias_targets: dict[tuple[str, str], tuple[str, str]],
 ) -> str:
     def source_link(video_id: str, chunk_id: str) -> str | None:
-        if (video_id, chunk_id) not in source_targets:
+        source_target = (video_id, chunk_id)
+        if source_target in source_alias_targets:
+            video_id, chunk_id = source_alias_targets[source_target]
+        elif source_target not in source_targets:
             return None
         return f"[[Sources/Chunks/{video_id}/{chunk_id}|{video_id}/{chunk_id}]]"
 
@@ -523,8 +536,14 @@ def rewrite_course_material_source_refs(
         chunk_id = match.group(2)
         return source_link(video_id, chunk_id) or match.group(0)
 
+    def replace_bare(match: re.Match[str]) -> str:
+        video_id = match.group(1)
+        chunk_id = match.group(2)
+        return source_link(video_id, chunk_id) or match.group(0)
+
     rewritten = BRACKETED_SOURCE_REF_PATTERN.sub(replace_bracketed, markdown)
-    return PREFIXED_SOURCE_REF_PATTERN.sub(replace_prefixed, rewritten)
+    rewritten = PREFIXED_SOURCE_REF_PATTERN.sub(replace_prefixed, rewritten)
+    return BARE_SOURCE_REF_PATTERN.sub(replace_bare, rewritten)
 
 
 def course_chapter_source_targets(chapter: dict[str, Any]) -> set[tuple[str, str]]:
@@ -539,6 +558,22 @@ def course_chapter_source_targets(chapter: dict[str, Any]) -> set[tuple[str, str
             chunk_id = str(source.get("chunk_id", "")).strip()
             if video_id and chunk_id:
                 targets.add((video_id, chunk_id))
+    return targets
+
+
+def course_article_source_alias_targets(pages: list[dict[str, Any]]) -> dict[tuple[str, str], tuple[str, str]]:
+    targets: dict[tuple[str, str], tuple[str, str]] = {}
+    for page in pages:
+        slug = str(page.get("slug", "")).strip()
+        if not slug:
+            continue
+        for index, source in enumerate(page.get("sources", []), start=1):
+            if not isinstance(source, dict):
+                continue
+            video_id = str(source.get("video_id", "")).strip()
+            chunk_id = str(source.get("chunk_id", "")).strip()
+            if video_id and chunk_id:
+                targets[(slug, f"{index:04d}")] = (video_id, chunk_id)
     return targets
 
 

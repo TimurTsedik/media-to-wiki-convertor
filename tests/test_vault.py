@@ -211,6 +211,7 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
     markdown = (
         "# AWS\n\n"
         "Источники: [f323d805b520:0011], source:307869628eba#0004, "
+        "14c6fbca1e96#0002, overqualified#0001, "
         "[missingvideo:0001], source:missingvideo#0002.\n"
         "См. [[AWS Bedrock]] и [[Sources/Chunks/f323d805b520/0011|готовая ссылка]].\n"
     )
@@ -219,10 +220,16 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
         markdown,
         {"AWS Bedrock": "Wiki/AWS Bedrock"},
         source_targets={("f323d805b520", "0011"), ("307869628eba", "0004")},
+        source_alias_targets={
+            ("14c6fbca1e96", "0002"): ("14c6fbca1e96", "0002"),
+            ("overqualified", "0001"): ("14c6fbca1e96", "0003"),
+        },
     )
 
     assert "[[Sources/Chunks/f323d805b520/0011|f323d805b520/0011]]" in rewritten
     assert "[[Sources/Chunks/307869628eba/0004|307869628eba/0004]]" in rewritten
+    assert "[[Sources/Chunks/14c6fbca1e96/0002|14c6fbca1e96/0002]]" in rewritten
+    assert "[[Sources/Chunks/14c6fbca1e96/0003|14c6fbca1e96/0003]]" in rewritten
     assert "[missingvideo:0001]" in rewritten
     assert "source:missingvideo#0002" in rewritten
     assert "[[Wiki/AWS Bedrock|AWS Bedrock]]" in rewritten
