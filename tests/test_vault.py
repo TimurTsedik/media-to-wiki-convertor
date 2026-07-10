@@ -6,6 +6,7 @@ from media_to_wiki_convertor.vault import (
     count_vault_articles,
     file_link,
     note_path_for_title,
+    rewrite_course_material_map_links,
     rewrite_course_material_links,
 )
 
@@ -272,6 +273,59 @@ def test_rewrite_course_material_links_rewrites_llm_source_refs_to_chunk_links()
     assert "source:missingvideo#0002" in rewritten
     assert "[[Wiki/AWS Bedrock|AWS Bedrock]]" in rewritten
     assert "[[Sources/Chunks/f323d805b520/0011|готовая ссылка]]" in rewritten
+
+
+def test_rewrite_course_material_map_links_links_articles_and_local_headings() -> None:
+    markdown = """# Software Engineering
+
+## Карта раздела
+- [[Spec Driven Development]]
+- Deferred Topic
+- Missing Topic
+
+## Подтемы курса
+
+### Deferred Topic
+Текст.
+
+### CI/CD и monorepository
+Текст.
+
+## Полный список подтем и источников
+
+- Missing Topic
+"""
+
+    rewritten = rewrite_course_material_map_links(
+        markdown,
+        chapter_key="software-engineering",
+        link_targets={"Spec Driven Development": "Wiki/Spec Driven Development"},
+    )
+
+    assert "- [[Wiki/Spec Driven Development|Spec Driven Development]]" in rewritten
+    assert "- [[Course Materials/software-engineering#Deferred Topic|Deferred Topic]]" in rewritten
+    assert "- [[Course Materials/software-engineering#Полный список подтем и источников|Missing Topic]]" in rewritten
+
+
+def test_rewrite_course_material_map_links_fuzzy_matches_heading_titles() -> None:
+    markdown = """# DevOps
+
+## Карта раздела
+- CI/CD
+
+## Подтемы курса
+
+### CI/CD и monorepository
+Текст.
+"""
+
+    rewritten = rewrite_course_material_map_links(
+        markdown,
+        chapter_key="devops",
+        link_targets={},
+    )
+
+    assert "- [[Course Materials/devops#CI/CD и monorepository|CI/CD]]" in rewritten
 
 
 def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path) -> None:

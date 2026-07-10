@@ -392,6 +392,7 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
 
     known_titles = {str(page.get("title", "")) for page in pages}
     source_alias_targets = course_article_source_alias_targets(pages)
+    course_link_targets = {title: note_target_for_title(title) for title in known_titles}
     write_text(
         vault / "Course Materials" / "00 Справочные материалы по курсу.md",
         render_course_materials_index(chapters),
@@ -404,13 +405,18 @@ def write_course_materials(raw_data: Path, vault: Path, pages: list[dict[str, An
         if draft_path.exists() and draft_path.stat().st_size > 0:
             markdown = rewrite_course_material_links(
                 draft_path.read_text(encoding="utf-8"),
-                {title: note_target_for_title(title) for title in known_titles},
+                course_link_targets,
                 source_targets=course_chapter_source_targets(chapter),
                 source_alias_targets=source_alias_targets,
             )
             appendix = render_course_chapter_reference_appendix(chapter)
             if appendix:
                 markdown = markdown.rstrip() + "\n\n" + appendix
+            markdown = rewrite_course_material_map_links(
+                markdown,
+                chapter_key=key,
+                link_targets=course_link_targets,
+            )
         else:
             markdown = render_course_chapter(chapter, known_titles)
         write_text(
@@ -520,6 +526,113 @@ def rewrite_course_material_links(
         source_alias_targets,
     )
     return rewritten
+
+
+def rewrite_course_material_map_links(
+    markdown: str,
+    chapter_key: str,
+    link_targets: dict[str, str],
+) -> str:
+    match = re.search(r"^## Карта раздела\n(?P<body>.*?)(?=^## |\Z)", markdown, flags=re.M | re.S)
+    if not match:
+        return markdown
+
+    headings = course_material_heading_titles(markdown)
+    has_reference_appendix = bool(
+        re.search(r"^## Полный список подтем и источников\s*$", markdown, flags=re.M)
+    )
+    rewritten_lines: list[str] = []
+    changed = False
+    for line in match.group("body").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("-"):
+            rewritten_lines.append(line)
+            continue
+
+        label = course_map_item_label(stripped[1:].strip())
+        if not label:
+            rewritten_lines.append(line)
+            continue
+
+        if label in link_targets:
+            rewritten_lines.append(f"- [[{link_targets[label]}|{label}]]")
+            changed = True
+        elif label in headings:
+            rewritten_lines.append(f"- [[Course Materials/{chapter_key}#{label}|{label}]]")
+            changed = True
+        elif heading := fuzzy_course_heading(label, headings):
+            rewritten_lines.append(f"- [[Course Materials/{chapter_key}#{heading}|{label}]]")
+            changed = True
+        elif has_reference_appendix:
+            rewritten_lines.append(
+                f"- [[Course Materials/{chapter_key}#Полный список подтем и источников|{label}]]"
+            )
+            changed = True
+        else:
+            rewritten_lines.append(line)
+
+    if not changed:
+        return markdown
+
+    replacement = "## Карта раздела\n" + "\n".join(rewritten_lines)
+    if match.group("body").endswith("\n"):
+        replacement += "\n"
+    return markdown[: match.start()] + replacement + markdown[match.end() :]
+
+
+def course_material_heading_titles(markdown: str) -> set[str]:
+    titles: set[str] = set()
+    for match in re.finditer(r"^###\s+(.+?)\s*$", markdown, flags=re.M):
+        label = course_map_item_label(match.group(1).strip())
+        if label:
+            titles.add(label)
+    return titles
+
+
+def fuzzy_course_heading(label: str, headings: set[str]) -> str | None:
+    label_tokens = course_heading_tokens(label)
+    if not label_tokens:
+        return None
+
+    best_heading = None
+    best_score = 0.0
+    for heading in headings:
+        heading_tokens = course_heading_tokens(heading)
+        if not heading_tokens:
+            continue
+        overlap = label_tokens & heading_tokens
+        score = len(overlap) / max(1, min(len(label_tokens), len(heading_tokens)))
+        if score > best_score:
+            best_score = score
+            best_heading = heading
+    if best_score > 0.5:
+        return best_heading
+    return None
+
+
+def course_heading_tokens(value: str) -> set[str]:
+    normalized = value.casefold().replace("/", " ")
+    return {
+        token
+        for token in re.findall(r"[\w#+.-]+", normalized)
+        if len(token) > 1
+    }
+
+
+def course_map_item_label(value: str) -> str:
+    value = value.strip()
+    if not value:
+        return ""
+    value = value.split(" — ", 1)[0].strip()
+    markdown_link = re.fullmatch(r"\[([^\]]+)\]\([^)]+\)", value)
+    if markdown_link:
+        value = markdown_link.group(1).strip()
+    wikilink = re.fullmatch(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]", value)
+    if wikilink:
+        value = (wikilink.group(2) or wikilink.group(1)).strip()
+        if "/" in value and wikilink.group(2) is None:
+            value = value.rsplit("/", 1)[-1]
+    return value.strip()
 
 
 def rewrite_course_material_source_refs(
