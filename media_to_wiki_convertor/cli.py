@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 import time
 
@@ -14,7 +15,6 @@ from media_to_wiki_convertor.audio import audio_is_valid, count_existing_audio, 
 from media_to_wiki_convertor.chunks import chunk_transcript_record, count_existing_chunks
 from media_to_wiki_convertor.config import PipelineConfig, load_config
 from media_to_wiki_convertor.draft_articles import (
-    OpenAIArticleClient,
     build_article_prompt,
     count_draft_articles,
     draft_article,
@@ -22,13 +22,13 @@ from media_to_wiki_convertor.draft_articles import (
     select_source_packs,
 )
 from media_to_wiki_convertor.knowledge import (
-    OpenAIKnowledgeClient,
     build_extraction_prompt,
     chunk_payloads,
     count_existing_knowledge,
     extract_chunk_knowledge,
     select_chunk_payloads,
 )
+from media_to_wiki_convertor.llm_clients import create_article_client, create_knowledge_client
 from media_to_wiki_convertor.manifest import (
     build_video_record,
     iter_video_files,
@@ -505,9 +505,11 @@ def extract_knowledge(
         return 0
 
     selected_model = model or config.llm.model
+    llm_config = replace(config.llm, model=selected_model)
     say(
         "Knowledge extraction settings: "
-        f"model={selected_model}, output_language={config.wiki.language}, "
+        f"provider={llm_config.provider}, model={selected_model}, "
+        f"output_language={config.wiki.language}, "
         f"chunks={len(payloads)}, force={force}, dry_run={dry_run}"
     )
 
@@ -516,10 +518,7 @@ def extract_knowledge(
         return 0
 
     try:
-        client = OpenAIKnowledgeClient.from_env(
-            model=selected_model,
-            output_language=config.wiki.language,
-        )
+        client = create_knowledge_client(llm_config, output_language=config.wiki.language)
     except RuntimeError as exc:
         say(str(exc))
         return 1
@@ -686,10 +685,12 @@ def draft_articles(
         return 0
 
     selected_model = model or config.llm.model
+    llm_config = replace(config.llm, model=selected_model)
     known_titles = [str(page["title"]) for page in pages]
     say(
         "Draft articles settings: "
-        f"model={selected_model}, output_language={config.wiki.language}, "
+        f"provider={llm_config.provider}, model={selected_model}, "
+        f"output_language={config.wiki.language}, "
         f"articles={len(source_packs)}, force={force}, dry_run={dry_run}"
     )
 
@@ -698,10 +699,7 @@ def draft_articles(
         return 0
 
     try:
-        client = OpenAIArticleClient.from_env(
-            model=selected_model,
-            output_language=config.wiki.language,
-        )
+        client = create_article_client(llm_config, output_language=config.wiki.language)
     except RuntimeError as exc:
         say(str(exc))
         return 1

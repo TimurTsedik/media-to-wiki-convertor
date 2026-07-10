@@ -222,12 +222,13 @@ class OpenAIKnowledgeClient:
         model: str,
         output_language: str = "ru",
         api_key_env: str = "OPENAI_API_KEY",
+        endpoint: str = "https://api.openai.com/v1/responses",
     ) -> "OpenAIKnowledgeClient":
         api_key = os.environ.get(api_key_env)
         if api_key is None:
             raise RuntimeError(f"Missing API key. Set {api_key_env} in your shell or .env.")
         validate_openai_api_key(api_key, api_key_env)
-        return cls(api_key=api_key, model=model, output_language=output_language)
+        return cls(api_key=api_key, model=model, output_language=output_language, endpoint=endpoint)
 
     def extract(self, chunk: dict[str, Any]) -> dict[str, Any]:
         payload = {

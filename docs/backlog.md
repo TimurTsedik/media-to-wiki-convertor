@@ -168,7 +168,7 @@ Verification:
 
 ### MTW-005: Add LLM Provider Factory
 
-Status: Ready
+Status: Done
 
 Contract:
 
@@ -194,6 +194,15 @@ Audit:
 - Dependency: current clients are tightly named `OpenAI...`.
 - Verification: transport-injected tests, no live API calls.
 
+Verification:
+
+- Worker added provider factory for `openai` and `openai-compatible`.
+- Unsupported providers fail before chunk/article processing.
+- No live API calls are used in tests.
+- `PYTHONPATH=... /tmp/media-wiki-ci-venv/bin/python -m pytest tests/test_config.py tests/test_llm_clients.py tests/test_cli.py tests/test_knowledge.py tests/test_draft_articles.py -q -p no:cacheprovider` -> 30 passed.
+- `PYTHONPATH=... /tmp/media-wiki-ci-venv/bin/python -m pytest -q -p no:cacheprovider` -> 87 passed.
+- `RUFF_CACHE_DIR=/tmp/media-wiki-ruff-cache /tmp/media-wiki-ci-venv/bin/python -m ruff check media_to_wiki_convertor tests` -> passed.
+
 ## Execution Order
 
 1. MTW-001: Language config and prompt language.
@@ -204,7 +213,7 @@ Audit:
 
 ## Now
 
-- Start MTW-005.
+- First external user feedback batch complete.
 
 ## Next
 

@@ -101,3 +101,35 @@ def test_build_vault_writes_failed_run_event_for_unexpected_error(
     assert events[1]["stage"] == "build-vault"
     assert events[1]["item_id"] == "vault"
     assert events[1]["error"] == "vault exploded"
+
+
+def test_extract_knowledge_rejects_unsupported_llm_provider_before_processing(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    config = make_config(tmp_path)
+    config = PipelineConfig(
+        paths=config.paths,
+        discover=config.discover,
+        transcription=config.transcription,
+        llm=LLMConfig(provider="anthropic", model="claude-test"),
+        wiki=config.wiki,
+        chunking=config.chunking,
+    )
+    chunk_dir = config.paths.raw_data / "chunks" / "abc123"
+    chunk_dir.mkdir(parents=True)
+    (chunk_dir / "0001.json").write_text(
+        json.dumps({"video_id": "abc123", "chunk_id": "0001", "text": "hello"}),
+        encoding="utf-8",
+    )
+
+    def fail_if_processed(*args, **kwargs):
+        raise AssertionError("chunk processing should not start")
+
+    monkeypatch.setattr(cli, "extract_chunk_knowledge", fail_if_processed)
+
+    assert cli.extract_knowledge(config, None, None, None, False, False) == 1
+    output = capsys.readouterr().out
+    assert "Unsupported LLM provider: anthropic" in output
+    assert "openai-compatible" in output

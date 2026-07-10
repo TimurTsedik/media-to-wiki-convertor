@@ -17,7 +17,7 @@ It does the boring heavy lifting:
 - transcribes locally with Whisper on Apple Silicon
 - imports existing JSON or TXT transcripts
 - splits transcripts into overlapping chunks
-- extracts structured knowledge with OpenAI
+- extracts structured knowledge with an OpenAI Responses API client
 - drafts wiki articles
 - builds an Obsidian vault with links back to chunks and transcripts
 
@@ -45,7 +45,7 @@ Every stage writes files to disk, so the pipeline is resumable. If a run stops h
 - Python 3.11+
 - `ffmpeg`
 - macOS Apple Silicon for the default `mlx-whisper` transcription engine, unless you import transcripts
-- OpenAI API key for knowledge extraction and article drafting
+- OpenAI API key, or a Responses API-compatible provider key, for knowledge extraction and article drafting
 
 Install `ffmpeg` on macOS:
 
@@ -84,6 +84,26 @@ Add your OpenAI API key to `.env`:
 
 ```text
 OPENAI_API_KEY=
+```
+
+The default LLM configuration uses OpenAI:
+
+```toml
+[llm]
+provider = "openai"
+model = "gpt-5.4-mini"
+base_url = "https://api.openai.com/v1/responses"
+api_key_env = "OPENAI_API_KEY"
+```
+
+For an OpenAI Responses API-compatible endpoint, set `provider = "openai-compatible"` and point `base_url` and `api_key_env` at that service:
+
+```toml
+[llm]
+provider = "openai-compatible"
+model = "provider-model-name"
+base_url = "https://example.com/v1/responses"
+api_key_env = "COMPATIBLE_LLM_API_KEY"
 ```
 
 Configure paths:
@@ -151,10 +171,10 @@ You can also run stages one by one.
 | `validate-audio` | Checks extracted audio files before transcription. |
 | `transcribe` | Transcribes audio locally with `mlx-whisper`. |
 | `chunk-transcripts` | Splits transcript JSON into overlapping chunk files. |
-| `extract-knowledge` | Uses OpenAI to extract topics, terms, practices, and article candidates. |
+| `extract-knowledge` | Uses the configured LLM provider to extract topics, terms, practices, and article candidates. |
 | `build-topic-index` | Builds deterministic indexes from extracted knowledge. |
 | `build-article-plan` | Selects article pages and source packs. |
-| `draft-articles` | Uses OpenAI to draft wiki article Markdown. |
+| `draft-articles` | Uses the configured LLM provider to draft wiki article Markdown. |
 | `build-vault` | Builds the final Obsidian vault. |
 
 Example:
@@ -175,7 +195,7 @@ media-to-wiki-convertor build-vault
 
 Transcription is local. Your media and audio do not need to leave your machine for the transcription stage.
 
-These stages send transcript-derived text to OpenAI:
+These stages send transcript-derived text to the configured LLM provider:
 
 - `extract-knowledge`
 - `draft-articles`

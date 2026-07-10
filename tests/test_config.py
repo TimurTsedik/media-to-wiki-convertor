@@ -18,7 +18,10 @@ video_extensions = [".mp4", ".MOV"]
 max_depth = 3
 
 [llm]
+provider = "openai-compatible"
 model = "gpt-5.4-mini"
+base_url = "https://llm.example.test/v1/responses"
+api_key_env = "CUSTOM_LLM_API_KEY"
 
 [wiki]
 language = "en"
@@ -33,7 +36,10 @@ language = "en"
     assert config.paths.vault == Path("/vault")
     assert config.discover.video_extensions == (".mp4", ".mov")
     assert config.discover.max_depth == 3
+    assert config.llm.provider == "openai-compatible"
     assert config.llm.model == "gpt-5.4-mini"
+    assert config.llm.base_url == "https://llm.example.test/v1/responses"
+    assert config.llm.api_key_env == "CUSTOM_LLM_API_KEY"
     assert config.transcription.language == "ru"
     assert config.wiki.language == "en"
 
@@ -56,6 +62,10 @@ vault = "/vault"
 
     assert config.transcription.language == "en"
     assert config.wiki.language == "en"
+    assert config.llm.provider == "openai"
+    assert config.llm.model == "gpt-5.4-mini"
+    assert config.llm.base_url == "https://api.openai.com/v1/responses"
+    assert config.llm.api_key_env == "OPENAI_API_KEY"
 
 
 def test_load_config_defaults_wiki_language_to_transcription_language(tmp_path: Path) -> None:

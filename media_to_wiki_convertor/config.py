@@ -36,6 +36,8 @@ class TranscriptionConfig:
 class LLMConfig:
     provider: str
     model: str
+    base_url: str = "https://api.openai.com/v1/responses"
+    api_key_env: str = "OPENAI_API_KEY"
 
 
 @dataclass(frozen=True)
@@ -95,6 +97,8 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
         llm=LLMConfig(
             provider=str(llm.get("provider", "openai")),
             model=str(llm.get("model", "gpt-5.4-mini")),
+            base_url=str(llm.get("base_url", "https://api.openai.com/v1/responses")),
+            api_key_env=str(llm.get("api_key_env", "OPENAI_API_KEY")),
         ),
         wiki=WikiConfig(language=wiki_language),
         chunking=ChunkingConfig(
