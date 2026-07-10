@@ -22,7 +22,7 @@ It does the boring heavy lifting:
 - builds course reference chapters from catalog topics
 - drafts wiki articles
 - drafts course reference materials
-- builds an Obsidian vault with links back to chunks and transcripts
+- builds an Obsidian vault with linked articles, course materials, source chunks, and transcripts
 
 ## Why This Exists
 
@@ -55,6 +55,28 @@ This project has already absorbed its first round of real user feedback:
 - Separate language settings: `[transcription].language` controls speech/transcript language, while `[wiki].language` controls extracted knowledge and drafted article language.
 - Run telemetry: long-running stages write support-friendly JSONL events to `raw-data/logs/run-events.jsonl` with start, finish, elapsed time, status, and errors.
 - LLM provider configuration: choose OpenAI, Anthropic, Gemini, or an OpenAI-compatible endpoint with provider-specific API key env vars.
+- High-level catalog: planned articles and deferred topics are grouped into deterministic catalog pages.
+- Course materials: the pipeline builds a course reference plan and drafts chapter-style notes from the catalog.
+- Source-backed course chapters: generated chapter drafts are post-processed so source references become Obsidian links to `Sources/Chunks/...`.
+- Linked section maps: `## Карта раздела` entries are normalized into links to wiki articles, chapter headings, or the chapter source appendix.
+- Compact course prompts: `draft-course-materials` uses a small default source budget and exposes `--max-topics` / `--max-chunk-chars` for larger-context models.
+
+## Real-World Validation
+
+The current pipeline has been exercised end-to-end on a 32-video Russian-language training corpus of roughly 48 hours of material.
+
+That run produced:
+
+- 32 transcripts
+- 353 overlapping transcript chunks
+- 353 extracted knowledge files
+- 1,543 topic pages before article planning
+- 47 drafted wiki articles
+- 102 catalog categories
+- 102 drafted course material chapters
+- an Obsidian vault with 9,340 wikilinks and 0 missing wikilinks
+
+The generated vault includes wiki articles, source chunk notes, transcript notes, catalog indexes, and a `Course Materials/` section designed to read like course reference material rather than raw meeting notes.
 
 ## Requirements
 
@@ -260,12 +282,14 @@ These stages send transcript-derived text to the configured LLM provider:
 
 - `extract-knowledge`
 - `draft-articles`
+- `draft-course-materials`
 
 Use trial runs before sending everything:
 
 ```bash
 media-to-wiki-convertor extract-knowledge --sample-per-video 1 --dry-run
 media-to-wiki-convertor draft-articles --limit 1 --dry-run
+media-to-wiki-convertor draft-course-materials --limit 1 --dry-run
 ```
 
 ## Generated Output
@@ -298,6 +322,13 @@ The vault contains:
 - `90 Transcripts.md`
 - `90 Transcripts/`
 
+Course material pages are post-processed during `build-vault`:
+
+- source references such as `video_id:abc123#0004`, `[abc123#0004]`, `source://...`, and model-generated Markdown source links are normalized to `[[Sources/Chunks/abc123/0004|abc123/0004]]`
+- unknown course-map entries are linked to a matching local chapter heading when possible
+- remaining map entries link to the chapter's full source appendix instead of becoming dead text
+- existing vault links are preserved
+
 ## Testing
 
 ```bash
@@ -307,7 +338,7 @@ The vault contains:
 Expected result:
 
 ```text
-126 passed
+131 passed
 ```
 
 ## Notes
