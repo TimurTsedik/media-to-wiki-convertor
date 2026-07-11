@@ -27,7 +27,7 @@ Steps:
 - [x] Preserve `--videos` and make `--media-source` take precedence.
 - [x] Run focused tests and confirm they pass.
 - [x] Update backlog task status.
-- [ ] Commit.
+- [x] Commit.
 
 ## Task 2: Config dataclass media aliases
 
@@ -40,12 +40,12 @@ Steps:
 
 Steps:
 
-- [ ] Write tests for `PipelinePaths.media_source` and `DiscoverConfig.media_extensions`.
-- [ ] Run focused tests and confirm they fail.
-- [ ] Add read-only property aliases.
-- [ ] Switch CLI internals to use media aliases where possible.
-- [ ] Run focused tests and confirm they pass.
-- [ ] Update backlog task status.
+- [x] Write tests for `PipelinePaths.media_source` and `DiscoverConfig.media_extensions`.
+- [x] Run focused tests and confirm they fail.
+- [x] Add read-only property aliases.
+- [x] Switch CLI internals to use media aliases where possible.
+- [x] Run focused tests and confirm they pass.
+- [x] Update backlog task status.
 - [ ] Commit.
 
 ## Task 3: Manifest media aliases

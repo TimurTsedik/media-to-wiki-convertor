@@ -30,7 +30,7 @@ Acceptance:
 
 ## Task 2: Add media-first config/model aliases
 
-Status: pending
+Status: completed
 
 Problem:
 - `PipelinePaths.video_source` and `DiscoverConfig.video_extensions` are still the only Python attribute names.

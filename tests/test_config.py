@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-from media_to_wiki_convertor.config import load_config, load_dotenv
+from media_to_wiki_convertor.config import DiscoverConfig, PipelinePaths, load_config, load_dotenv
 
 
 def test_load_config_from_toml(tmp_path: Path) -> None:
@@ -42,6 +42,22 @@ language = "en"
     assert config.llm.api_key_env == "CUSTOM_LLM_API_KEY"
     assert config.transcription.language == "ru"
     assert config.wiki.language == "en"
+
+
+def test_pipeline_paths_exposes_media_source_alias() -> None:
+    paths = PipelinePaths(
+        video_source=Path("/recordings"),
+        raw_data=Path("/raw"),
+        vault=Path("/vault"),
+    )
+
+    assert paths.media_source == Path("/recordings")
+
+
+def test_discover_config_exposes_media_extensions_alias() -> None:
+    discover = DiscoverConfig(video_extensions=(".mp3", ".m4a"), max_depth=4)
+
+    assert discover.media_extensions == (".mp3", ".m4a")
 
 
 def test_load_config_supports_legacy_top_level_language(tmp_path: Path) -> None:

@@ -30,11 +30,19 @@ class PipelinePaths:
     raw_data: Path
     vault: Path
 
+    @property
+    def media_source(self) -> Path:
+        return self.video_source
+
 
 @dataclass(frozen=True)
 class DiscoverConfig:
     video_extensions: tuple[str, ...]
     max_depth: int
+
+    @property
+    def media_extensions(self) -> tuple[str, ...]:
+        return self.video_extensions
 
 
 @dataclass(frozen=True)

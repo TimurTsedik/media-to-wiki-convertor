@@ -112,7 +112,7 @@ def print_status(config: PipelineConfig) -> None:
     records = read_manifest(config.paths.raw_data)
 
     say("Media To Wiki Convertor pipeline")
-    say(f"media_source: {config.paths.video_source}")
+    say(f"media_source: {config.paths.media_source}")
     say(f"raw_data:     {config.paths.raw_data}")
     say(f"vault:        {config.paths.vault}")
     say(f"manifest:     {manifest_path(config.paths.raw_data)}")
@@ -144,7 +144,7 @@ def healthcheck(config: PipelineConfig) -> int:
 
 def discover(config: PipelineConfig, source_override: Path | None = None) -> int:
     ensure_raw_layout(config.paths.raw_data)
-    source = source_override or config.paths.video_source
+    source = source_override or config.paths.media_source
     scanned_dirs = 0
 
     def report_progress(path: Path) -> None:
@@ -155,7 +155,7 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
 
     videos = iter_video_files(
         source,
-        config.discover.video_extensions,
+        config.discover.media_extensions,
         config.discover.max_depth,
         on_progress=report_progress,
     )
@@ -168,8 +168,8 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
 
 def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | None = None) -> int:
     ensure_raw_layout(config.paths.raw_data)
-    base = base_dir or config.paths.video_source
-    videos = read_video_path_list(list_path, base, config.discover.video_extensions)
+    base = base_dir or config.paths.media_source
+    videos = read_video_path_list(list_path, base, config.discover.media_extensions)
     records = [build_video_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
     say(f"Imported {len(records)} media file(s).")
