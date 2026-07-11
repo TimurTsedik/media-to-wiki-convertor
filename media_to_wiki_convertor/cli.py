@@ -161,7 +161,7 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
     )
     records = [build_video_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
-    say(f"Discovered {len(records)} video file(s).")
+    say(f"Discovered {len(records)} media file(s).")
     say(f"Wrote manifest: {output_path}")
     return len(records)
 
@@ -172,7 +172,7 @@ def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | 
     videos = read_video_path_list(list_path, base, config.discover.video_extensions)
     records = [build_video_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
-    say(f"Imported {len(records)} video file(s).")
+    say(f"Imported {len(records)} media file(s).")
     say(f"Wrote manifest: {output_path}")
     return len(records)
 

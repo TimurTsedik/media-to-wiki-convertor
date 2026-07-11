@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Tests](https://github.com/TimurTsedik/media-to-wiki-convertor/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/TimurTsedik/media-to-wiki-convertor/actions/workflows/test.yml)
 
-Turn long videos into a searchable Obsidian wiki.
+Turn long media recordings into a searchable Obsidian wiki.
 
 `media-to-wiki-convertor` is a local-first CLI pipeline for converting folders of training videos, calls, lectures, workshops, or research recordings into structured notes with source links.
 
@@ -31,7 +31,7 @@ Long recordings are full of useful knowledge, but raw transcripts are a swamp. T
 ## Pipeline
 
 ```text
-videos
+media files
   -> audio
   -> transcripts
   -> overlapping chunks
@@ -180,6 +180,13 @@ media-to-wiki-convertor config \
   --language ru
 ```
 
+The `--videos` option and `[paths].video_source` setting name are kept for compatibility, but the source folder can contain video or audio recordings. By default, discovery includes common video formats plus `.mp3`, `.m4a`, `.wav`, `.flac`, `.aac`, `.ogg`, and `.opus`:
+
+```toml
+[discover]
+media_extensions = [".mp4", ".mov", ".mkv", ".mp3", ".m4a", ".wav", ".flac", ".aac", ".ogg", ".opus"]
+```
+
 Language settings are split by purpose in `config.toml`:
 
 ```toml
@@ -231,9 +238,9 @@ You can also run stages one by one.
 
 | Stage | What It Does |
 | --- | --- |
-| `discover` | Scans the video folder and builds a manifest. |
+| `discover` | Scans the media source folder and builds a manifest. |
 | `import-list` | Builds a manifest from a text file of media paths. |
-| `import-transcript` | Imports an existing JSON or TXT transcript for a manifest video. |
+| `import-transcript` | Imports an existing JSON or TXT transcript for a manifest media record. |
 | `extract-audio` | Extracts mono 16 kHz WAV audio with `ffmpeg`. |
 | `validate-audio` | Checks extracted audio files before transcription. |
 | `transcribe` | Transcribes audio locally with `mlx-whisper`. |

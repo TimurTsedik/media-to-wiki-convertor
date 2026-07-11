@@ -21,6 +21,11 @@ def test_init_project_creates_generic_project_layout(tmp_path: Path) -> None:
     assert "GEMINI_API_KEY=" in env_example
     assert "raw-data/" in (target / ".gitignore").read_text(encoding="utf-8")
     assert "vault/" in (target / ".gitignore").read_text(encoding="utf-8")
+    config_text = (target / "config.toml").read_text(encoding="utf-8")
+    assert "media_extensions" in config_text
+    assert '".mp3"' in config_text
+    assert '".m4a"' in config_text
+    assert '".wav"' in config_text
 
 
 def test_init_project_refuses_to_overwrite_existing_config(tmp_path: Path) -> None:

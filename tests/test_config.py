@@ -66,6 +66,29 @@ vault = "/vault"
     assert config.llm.model == "gpt-5.4-mini"
     assert config.llm.base_url == "https://api.openai.com/v1/responses"
     assert config.llm.api_key_env == "OPENAI_API_KEY"
+    assert ".mp3" in config.discover.video_extensions
+    assert ".m4a" in config.discover.video_extensions
+    assert ".wav" in config.discover.video_extensions
+
+
+def test_load_config_accepts_media_extensions(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[paths]
+video_source = "/recordings"
+raw_data = "/raw"
+vault = "/vault"
+
+[discover]
+media_extensions = [".mp3", ".M4A"]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.discover.video_extensions == (".mp3", ".m4a")
 
 
 def test_load_config_defaults_anthropic_llm_endpoint_and_api_key_env(tmp_path: Path) -> None:

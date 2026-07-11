@@ -10,6 +10,18 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG_NAME = "config.toml"
 EXAMPLE_CONFIG_PATH = PACKAGE_ROOT / "config.example.toml"
 DOTENV_NAME = ".env"
+DEFAULT_MEDIA_EXTENSIONS = (
+    ".mp4",
+    ".mov",
+    ".mkv",
+    ".mp3",
+    ".m4a",
+    ".wav",
+    ".flac",
+    ".aac",
+    ".ogg",
+    ".opus",
+)
 
 
 @dataclass(frozen=True)
@@ -94,6 +106,11 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
     wiki_language = str(wiki.get("language", legacy_language or transcription_language))
     base_dir = path.parent
 
+    discover_extensions = discover.get(
+        "media_extensions",
+        discover.get("video_extensions", DEFAULT_MEDIA_EXTENSIONS),
+    )
+
     return PipelineConfig(
         paths=PipelinePaths(
             video_source=resolve_project_path(base_dir, paths["video_source"]),
@@ -101,9 +118,7 @@ def load_config(config_path: Path | None = None) -> PipelineConfig:
             vault=resolve_project_path(base_dir, paths["vault"]),
         ),
         discover=DiscoverConfig(
-            video_extensions=tuple(
-                ext.lower() for ext in discover.get("video_extensions", [".mp4", ".mov", ".mkv"])
-            ),
+            video_extensions=tuple(ext.lower() for ext in discover_extensions),
             max_depth=int(discover.get("max_depth", 8)),
         ),
         transcription=TranscriptionConfig(

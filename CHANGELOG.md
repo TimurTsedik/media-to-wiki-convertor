@@ -5,6 +5,8 @@
 - Switch generated Obsidian vaults to a course-first numbered layout:
   `00 Start Here.md`, `01 Course Materials/`, `02 Reference Wiki/`, `03 Indexes/`,
   `04 Sources/`, `05 Transcripts/`, and `99 System/`.
+- Treat common audio recordings as first-class media inputs by default via
+  `[discover].media_extensions`, while keeping legacy `video_extensions` configs working.
 
 ## 1.0.3 - 2026-07-10
 

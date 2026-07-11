@@ -10,7 +10,18 @@ raw_data = "./raw-data"
 vault = "./vault"
 
 [discover]
-video_extensions = [".mp4", ".mov", ".mkv"]
+media_extensions = [
+  ".mp4",
+  ".mov",
+  ".mkv",
+  ".mp3",
+  ".m4a",
+  ".wav",
+  ".flac",
+  ".aac",
+  ".ogg",
+  ".opus",
+]
 max_depth = 8
 
 [transcription]
