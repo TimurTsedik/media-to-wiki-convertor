@@ -57,10 +57,10 @@ from media_to_wiki_convertor.llm_clients import (
     create_knowledge_client,
 )
 from media_to_wiki_convertor.manifest import (
-    build_video_record,
-    iter_video_files,
+    build_media_record,
+    iter_media_files,
     manifest_path,
-    read_video_path_list,
+    read_media_path_list,
     read_manifest,
     write_manifest,
 )
@@ -153,13 +153,13 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
         if scanned_dirs == 1 or scanned_dirs % 25 == 0:
             say(f"Scanning directory {scanned_dirs}: {path}")
 
-    videos = iter_video_files(
+    videos = iter_media_files(
         source,
         config.discover.media_extensions,
         config.discover.max_depth,
         on_progress=report_progress,
     )
-    records = [build_video_record(path) for path in videos]
+    records = [build_media_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
     say(f"Discovered {len(records)} media file(s).")
     say(f"Wrote manifest: {output_path}")
@@ -169,8 +169,8 @@ def discover(config: PipelineConfig, source_override: Path | None = None) -> int
 def import_video_list(config: PipelineConfig, list_path: Path, base_dir: Path | None = None) -> int:
     ensure_raw_layout(config.paths.raw_data)
     base = base_dir or config.paths.media_source
-    videos = read_video_path_list(list_path, base, config.discover.media_extensions)
-    records = [build_video_record(path) for path in videos]
+    videos = read_media_path_list(list_path, base, config.discover.media_extensions)
+    records = [build_media_record(path) for path in videos]
     output_path = write_manifest(records, config.paths.raw_data)
     say(f"Imported {len(records)} media file(s).")
     say(f"Wrote manifest: {output_path}")

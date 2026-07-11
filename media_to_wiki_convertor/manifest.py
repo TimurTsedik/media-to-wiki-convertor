@@ -20,12 +20,19 @@ class VideoRecord:
     modified_at: str
 
 
+MediaRecord = VideoRecord
+
+
 def manifest_path(raw_data: Path) -> Path:
     return raw_data / "manifest" / "videos.jsonl"
 
 
 def stable_video_id(path: Path) -> str:
     return hashlib.sha1(str(path).encode("utf-8")).hexdigest()[:12]
+
+
+def stable_media_id(path: Path) -> str:
+    return stable_video_id(path)
 
 
 def iter_video_files(
@@ -66,6 +73,15 @@ def iter_video_files(
     return sorted(matches, key=lambda item: str(item).casefold())
 
 
+def iter_media_files(
+    source: Path,
+    extensions: tuple[str, ...],
+    max_depth: int,
+    on_progress: Callable[[Path], None] | None = None,
+) -> list[Path]:
+    return iter_video_files(source, extensions, max_depth, on_progress=on_progress)
+
+
 def read_video_path_list(
     list_path: Path,
     base_dir: Path,
@@ -85,6 +101,14 @@ def read_video_path_list(
             paths.append(path)
 
     return paths
+
+
+def read_media_path_list(
+    list_path: Path,
+    base_dir: Path,
+    extensions: tuple[str, ...],
+) -> list[Path]:
+    return read_video_path_list(list_path, base_dir, extensions)
 
 
 def path_from_list_line(line: str, base_dir: Path) -> Path:
@@ -120,6 +144,10 @@ def build_video_record(path: Path) -> VideoRecord:
         size_bytes=stat.st_size,
         modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
     )
+
+
+def build_media_record(path: Path) -> MediaRecord:
+    return build_video_record(path)
 
 
 def write_manifest(records: list[VideoRecord], raw_data: Path) -> Path:

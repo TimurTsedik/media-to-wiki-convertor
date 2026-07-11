@@ -1,10 +1,15 @@
 from pathlib import Path
 
 from media_to_wiki_convertor.manifest import (
+    MediaRecord,
     VideoRecord,
+    build_media_record,
+    iter_media_files,
     iter_video_files,
+    read_media_path_list,
     read_video_path_list,
     read_manifest,
+    stable_media_id,
     stable_video_id,
     write_manifest,
 )
@@ -20,6 +25,15 @@ def test_iter_video_files_filters_extensions_and_depth(tmp_path: Path) -> None:
     matches = iter_video_files(tmp_path, (".mp4", ".mov"), max_depth=1)
 
     assert matches == [tmp_path / "lesson.mp4"]
+
+
+def test_iter_media_files_discovers_audio_inputs(tmp_path: Path) -> None:
+    (tmp_path / "voice-note.m4a").write_text("audio", encoding="utf-8")
+    (tmp_path / "notes.txt").write_text("notes", encoding="utf-8")
+
+    matches = iter_media_files(tmp_path, (".m4a", ".mp3"), max_depth=1)
+
+    assert matches == [tmp_path / "voice-note.m4a"]
 
 
 def test_iter_video_files_reports_directory_progress(tmp_path: Path) -> None:
@@ -68,6 +82,24 @@ def test_read_video_path_list_supports_relative_and_absolute_paths(tmp_path: Pat
     assert paths == [relative_video, absolute_video]
 
 
+def test_read_media_path_list_supports_audio_paths(tmp_path: Path) -> None:
+    base = tmp_path / "recordings"
+    base.mkdir()
+    relative_audio = base / "daily note.m4a"
+    absolute_audio = tmp_path / "external.mp3"
+    relative_audio.write_text("audio", encoding="utf-8")
+    absolute_audio.write_text("audio", encoding="utf-8")
+    list_path = tmp_path / "media-list.txt"
+    list_path.write_text(
+        "\n".join(["daily note.m4a", str(absolute_audio)]),
+        encoding="utf-8",
+    )
+
+    paths = read_media_path_list(list_path, base, (".m4a", ".mp3"))
+
+    assert paths == [relative_audio, absolute_audio]
+
+
 def test_read_video_path_list_strips_leading_icon_when_needed(tmp_path: Path) -> None:
     base = tmp_path / "videos"
     base.mkdir()
@@ -100,3 +132,16 @@ def test_stable_video_id_is_repeatable() -> None:
     path = Path("/Volumes/My Passport/ЛАРЧЕНКО/lesson.mp4")
 
     assert stable_video_id(path) == stable_video_id(path)
+
+
+def test_media_aliases_keep_legacy_manifest_shape(tmp_path: Path) -> None:
+    path = tmp_path / "voice-note.m4a"
+    path.write_text("audio", encoding="utf-8")
+
+    record = build_media_record(path)
+
+    assert MediaRecord is VideoRecord
+    assert stable_media_id(path) == stable_video_id(path)
+    assert isinstance(record, VideoRecord)
+    assert record.video_id == stable_media_id(path)
+    assert record.extension == ".m4a"

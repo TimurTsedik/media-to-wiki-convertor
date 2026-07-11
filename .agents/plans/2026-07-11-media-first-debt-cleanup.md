@@ -46,7 +46,7 @@ Steps:
 - [x] Switch CLI internals to use media aliases where possible.
 - [x] Run focused tests and confirm they pass.
 - [x] Update backlog task status.
-- [ ] Commit.
+- [x] Commit.
 
 ## Task 3: Manifest media aliases
 
@@ -58,12 +58,12 @@ Steps:
 
 Steps:
 
-- [ ] Write tests for `MediaRecord`, `stable_media_id`, `iter_media_files`, `read_media_path_list`, and `build_media_record`.
-- [ ] Run focused tests and confirm they fail.
-- [ ] Add aliases/wrappers without changing persisted schema.
-- [ ] Switch CLI imports/calls to media aliases.
-- [ ] Run focused tests and confirm they pass.
-- [ ] Update backlog task status.
+- [x] Write tests for `MediaRecord`, `stable_media_id`, `iter_media_files`, `read_media_path_list`, and `build_media_record`.
+- [x] Run focused tests and confirm they fail.
+- [x] Add aliases/wrappers without changing persisted schema.
+- [x] Switch CLI imports/calls to media aliases.
+- [x] Run focused tests and confirm they pass.
+- [x] Update backlog task status.
 - [ ] Commit.
 
 ## Task 4: Audio-only fixture coverage

@@ -49,7 +49,7 @@ Acceptance:
 
 ## Task 3: Add media-first manifest API aliases
 
-Status: pending
+Status: completed
 
 Problem:
 - Public helpers are named `VideoRecord`, `iter_video_files`, `read_video_path_list`, `build_video_record`, and `stable_video_id`.
