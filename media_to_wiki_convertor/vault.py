@@ -28,6 +28,7 @@ LEGACY_MANAGED_PATHS = (
     "90 Transcripts.md",
     "Course Materials",
     "00 Home.md",
+    f"{TRANSCRIPT_ROOT}.md",
 )
 
 MANAGED_DIRS = (
@@ -342,13 +343,29 @@ def write_home(
     navigation.extend(
         [
             f"- [[{INDEX_ROOT}/Sources|Sources]]",
-            f"- [[{TRANSCRIPT_ROOT}|Transcripts]]",
+            f"- [[{TRANSCRIPT_ROOT}/00 Transcripts|Transcripts]]",
             f"- [[{INDEX_ROOT}/Deferred Topics|Deferred Topics]]",
             f"- [[{INDEX_ROOT}/Unlinked Mentions|Unlinked Mentions]]",
         ]
     )
+    read_first = []
+    if has_course_materials:
+        read_first.append(
+            f"- [[{COURSE_ROOT}/00 {labels.course_materials_title}|{labels.course_materials_title}]]"
+        )
+    if pages:
+        read_first.append(f"- {article_link(pages[0])}")
+    read_first.extend(
+        [
+            f"- [[{SOURCE_ROOT}|Sources]]",
+            f"- [[{TRANSCRIPT_ROOT}/00 Transcripts|Transcripts]]",
+        ]
+    )
     lines = [
-        f"# {labels.vault_title}",
+        "# Start Here",
+        "",
+        "## Read First",
+        *read_first,
         "",
         f"## {labels.navigation}",
         *navigation,
@@ -1120,17 +1137,18 @@ def write_transcript_notes(
     records = read_manifest(raw_data)
     transcript_records = [record for record in records if transcript_paths(raw_data, record.video_id)]
     labels = wiki_labels(output_language)
-    lines = [f"# {TRANSCRIPT_ROOT}", ""]
+    transcript_index_path = vault / TRANSCRIPT_ROOT / "00 Transcripts.md"
+    lines = ["# Transcripts", ""]
     if not transcript_records:
         lines.append(labels.no_transcripts)
-        write_text(vault / f"{TRANSCRIPT_ROOT}.md", "\n".join(lines) + "\n")
+        write_text(transcript_index_path, "\n".join(lines) + "\n")
         return 0
 
     for record in sorted(transcript_records, key=lambda item: item.title.casefold()):
         write_transcript_note(raw_data, vault, record, source_pages)
         lines.append(f"- [[{TRANSCRIPT_ROOT}/{record.video_id}|{record.title}]]")
 
-    write_text(vault / f"{TRANSCRIPT_ROOT}.md", "\n".join(lines).rstrip() + "\n")
+    write_text(transcript_index_path, "\n".join(lines).rstrip() + "\n")
     return len(transcript_records)
 
 

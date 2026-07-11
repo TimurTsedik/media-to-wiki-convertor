@@ -474,6 +474,11 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
         f"[[{COURSE_PREFIX}00 Справочные материалы по курсу|Справочные материалы по курсу]]"
         in home
     )
+    assert "# Start Here" in home
+    assert "## Read First" in home
+    assert f"[[{ARTICLE_PREFIX}Spec Driven Development|Spec Driven Development]]" in home
+    assert f"[[{SOURCE_ROOT}" in home
+    assert f"[[{TRANSCRIPT_PREFIX}00 Transcripts|Transcripts]]" in home
     assert f"[[{INDEX_PREFIX}Catalog/software-engineering|Software Engineering]]" in catalog_index
     course_index = (
         vault / COURSE_ROOT / "00 Справочные материалы по курсу.md"
@@ -504,7 +509,9 @@ def test_build_obsidian_vault_writes_articles_indexes_and_sources(tmp_path: Path
     assert f"[[{TRANSCRIPT_PREFIX}video-c|Video C]]" in deferred_source_note
     assert f"[[{INDEX_PREFIX}Catalog/software-engineering|Deferred Topic]]" in deferred_source_note
 
-    transcript_index = (vault / f"{TRANSCRIPT_ROOT}.md").read_text(encoding="utf-8")
+    transcript_index = (vault / TRANSCRIPT_ROOT / "00 Transcripts.md").read_text(
+        encoding="utf-8"
+    )
     transcript_note = (vault / TRANSCRIPT_ROOT / "video-a.md").read_text(encoding="utf-8")
     assert f"[[{TRANSCRIPT_PREFIX}video-a|Video A]]" in transcript_index
     assert "[TXT](" in transcript_note
@@ -533,12 +540,14 @@ def test_build_obsidian_vault_localizes_course_materials_to_english(tmp_path: Pa
 
     assert "# Course Reference Materials" in course_index
     assert f"[[{COURSE_PREFIX}00 Course Reference Materials|Course Reference Materials]]" in home
+    assert "# Start Here" in home
+    assert "## Read First" in home
+    assert f"[[{TRANSCRIPT_PREFIX}00 Transcripts|Transcripts]]" in home
     assert "## Section Map" in course_chapter
     assert "## Course Topics" in course_chapter
     assert "No standalone wiki articles yet." not in course_chapter
     assert "## Карта раздела" not in course_chapter
     assert "## Подтемы курса" not in course_chapter
-    assert "# Media To Wiki Vault" in home
     assert "## Navigation" in home
     assert "## Vault Status" in home
     assert "Larchenko" not in home
