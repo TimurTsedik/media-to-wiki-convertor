@@ -71,7 +71,7 @@ Acceptance:
 
 ## Task 4: Strengthen audio-only fixtures
 
-Status: pending
+Status: completed
 
 Problem:
 - Audio support is currently protected mostly by config/default tests.

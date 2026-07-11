@@ -12,11 +12,12 @@ from media_to_wiki_convertor.manifest import VideoRecord
 
 
 def make_record(path: str = "/videos/lesson.mp4") -> VideoRecord:
+    extension = Path(path).suffix.lower() or ".mp4"
     return VideoRecord(
         video_id="abc123",
         path=path,
         title="lesson",
-        extension=".mp4",
+        extension=extension,
         size_bytes=42,
         modified_at="2026-06-30T00:00:00+00:00",
     )
@@ -55,6 +56,26 @@ def test_build_ffmpeg_command_extracts_mono_16khz_audio(tmp_path: Path) -> None:
     ]
 
 
+def test_build_ffmpeg_command_accepts_audio_input(tmp_path: Path) -> None:
+    input_path = Path("/recordings/voice-note.m4a")
+    output_path = tmp_path / "audio" / "abc123.wav"
+
+    command = build_ffmpeg_command(input_path, output_path)
+
+    assert command == [
+        "ffmpeg",
+        "-y",
+        "-i",
+        "/recordings/voice-note.m4a",
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        str(output_path),
+    ]
+
+
 def test_extract_audio_runs_ffmpeg_when_output_is_missing(tmp_path: Path) -> None:
     calls: list[list[str]] = []
 
@@ -68,6 +89,21 @@ def test_extract_audio_runs_ffmpeg_when_output_is_missing(tmp_path: Path) -> Non
     assert result.output_path == tmp_path / "audio" / "abc123.wav"
     assert result.skipped is False
     assert len(calls) == 1
+
+
+def test_extract_audio_runs_for_audio_media_record(tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def runner(command: list[str]) -> None:
+        calls.append(command)
+        Path(command[-1]).write_text("wav", encoding="utf-8")
+
+    result = extract_audio_for_record(make_record("/recordings/voice-note.m4a"), tmp_path, runner=runner)
+
+    assert result.input_path == Path("/recordings/voice-note.m4a")
+    assert result.output_path == tmp_path / "audio" / "abc123.wav"
+    assert result.skipped is False
+    assert calls[0][3] == "/recordings/voice-note.m4a"
 
 
 def test_extract_audio_skips_existing_output(tmp_path: Path) -> None:

@@ -64,7 +64,7 @@ Steps:
 - [x] Switch CLI imports/calls to media aliases.
 - [x] Run focused tests and confirm they pass.
 - [x] Update backlog task status.
-- [ ] Commit.
+- [x] Commit.
 
 ## Task 4: Audio-only fixture coverage
 
@@ -76,10 +76,10 @@ Steps:
 
 Steps:
 
-- [ ] Add tests proving `.m4a` or `.mp3` source files are discovered/imported.
-- [ ] Add an audio extraction command test using an audio input path.
-- [ ] Run focused tests and confirm behavior is covered.
-- [ ] Update backlog task status.
+- [x] Add tests proving `.m4a` or `.mp3` source files are discovered/imported.
+- [x] Add an audio extraction command test using an audio input path.
+- [x] Run focused tests and confirm behavior is covered.
+- [x] Update backlog task status.
 - [ ] Commit.
 
 ## Task 5: Docs and changelog cleanup

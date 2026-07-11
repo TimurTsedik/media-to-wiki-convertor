@@ -145,3 +145,18 @@ def test_media_aliases_keep_legacy_manifest_shape(tmp_path: Path) -> None:
     assert isinstance(record, VideoRecord)
     assert record.video_id == stable_media_id(path)
     assert record.extension == ".m4a"
+
+
+def test_audio_only_media_discovery_roundtrips_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "recordings"
+    source.mkdir()
+    audio = source / "daily-note.mp3"
+    audio.write_text("audio", encoding="utf-8")
+
+    records = [build_media_record(path) for path in iter_media_files(source, (".mp3",), max_depth=1)]
+    write_manifest(records, tmp_path)
+
+    loaded = read_manifest(tmp_path)
+    assert len(loaded) == 1
+    assert loaded[0].path == str(audio)
+    assert loaded[0].extension == ".mp3"
