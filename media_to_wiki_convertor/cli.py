@@ -1150,8 +1150,18 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--force", action="store_true")
 
     config_parser = subparsers.add_parser("config", help="Update config.toml project settings.")
-    config_parser.add_argument("--media-source", type=Path, default=None)
-    config_parser.add_argument("--videos", type=Path, default=None)
+    config_parser.add_argument(
+        "--media-source",
+        type=Path,
+        default=None,
+        help="Path to the source folder containing video or audio recordings.",
+    )
+    config_parser.add_argument(
+        "--videos",
+        type=Path,
+        default=None,
+        help="Legacy alias for --media-source.",
+    )
     config_parser.add_argument("--raw", type=Path, default=None)
     config_parser.add_argument("--vault", type=Path, default=None)
     config_parser.add_argument("--language", default=None)
@@ -1191,7 +1201,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--base",
         type=Path,
         default=None,
-        help="Base directory for relative paths. Defaults to configured video_source.",
+        help="Base directory for relative paths. Defaults to the configured media source.",
     )
     import_transcript_parser = subparsers.add_parser(
         "import-transcript",

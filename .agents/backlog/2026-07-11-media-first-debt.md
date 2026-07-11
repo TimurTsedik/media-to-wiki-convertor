@@ -87,7 +87,7 @@ Acceptance:
 
 ## Task 5: Documentation cleanup for media-first UX
 
-Status: pending
+Status: completed
 
 Problem:
 - README still shows `--videos "/path/to/videos"` and describes folders of training videos first.

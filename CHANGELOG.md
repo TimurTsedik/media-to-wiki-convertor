@@ -7,6 +7,8 @@
   `04 Sources/`, `05 Transcripts/`, and `99 System/`.
 - Treat common audio recordings as first-class media inputs by default via
   `[discover].media_extensions`, while keeping legacy `video_extensions` configs working.
+- Add media-first compatibility aliases including `config --media-source`, config dataclass
+  media properties, and manifest helper aliases.
 
 ## 1.0.3 - 2026-07-10
 

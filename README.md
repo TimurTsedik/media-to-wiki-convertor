@@ -8,7 +8,7 @@
 
 Turn long media recordings into a searchable Obsidian wiki.
 
-`media-to-wiki-convertor` is a local-first CLI pipeline for converting folders of training videos, calls, lectures, workshops, or research recordings into structured notes with source links.
+`media-to-wiki-convertor` is a local-first CLI pipeline for converting folders of training videos, calls, lectures, workshops, voice memos, or research recordings into structured notes with source links.
 
 It does the boring heavy lifting:
 
@@ -174,13 +174,13 @@ Configure paths:
 
 ```bash
 media-to-wiki-convertor config \
-  --videos "/path/to/videos" \
+  --media-source "/path/to/recordings" \
   --raw "./raw-data" \
   --vault "./vault" \
   --language ru
 ```
 
-The `--videos` option and `[paths].video_source` setting name are kept for compatibility, but the source folder can contain video or audio recordings. By default, discovery includes common video formats plus `.mp3`, `.m4a`, `.wav`, `.flac`, `.aac`, `.ogg`, and `.opus`:
+The source folder can contain video or audio recordings. The legacy `--videos` option and `[paths].video_source` setting name are kept for compatibility; new commands should prefer `--media-source`. By default, discovery includes common video formats plus `.mp3`, `.m4a`, `.wav`, `.flac`, `.aac`, `.ogg`, and `.opus`:
 
 ```toml
 [discover]

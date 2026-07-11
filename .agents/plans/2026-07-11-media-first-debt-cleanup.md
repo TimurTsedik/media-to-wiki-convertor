@@ -80,7 +80,7 @@ Steps:
 - [x] Add an audio extraction command test using an audio input path.
 - [x] Run focused tests and confirm behavior is covered.
 - [x] Update backlog task status.
-- [ ] Commit.
+- [x] Commit.
 
 ## Task 5: Docs and changelog cleanup
 
@@ -91,11 +91,11 @@ Steps:
 
 Steps:
 
-- [ ] Update README quickstart to prefer `--media-source`.
-- [ ] Keep `--videos` documented as a legacy alias.
-- [ ] Update changelog.
-- [ ] Search docs for stale primary `--videos` wording.
-- [ ] Update backlog task status.
+- [x] Update README quickstart to prefer `--media-source`.
+- [x] Keep `--videos` documented as a legacy alias.
+- [x] Update changelog.
+- [x] Search docs for stale primary `--videos` wording.
+- [x] Update backlog task status.
 - [ ] Commit.
 
 ## Final Verification
