@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Switch generated Obsidian vaults to a course-first numbered layout:
+  `00 Start Here.md`, `01 Course Materials/`, `02 Reference Wiki/`, `03 Indexes/`,
+  `04 Sources/`, `05 Transcripts/`, and `99 System/`.
+
 ## 1.0.3 - 2026-07-10
 
 - Respect the global `--config` path for the `config` command.

@@ -58,7 +58,8 @@ This project has already absorbed its first round of real user feedback:
 - LLM provider configuration: choose OpenAI, Anthropic, Gemini, or an OpenAI-compatible endpoint with provider-specific API key env vars.
 - High-level catalog: planned articles and deferred topics are grouped into deterministic catalog pages.
 - Course materials: the pipeline builds a course reference plan and drafts chapter-style notes from the catalog.
-- Source-backed course chapters: generated chapter drafts are post-processed so source references become Obsidian links to `Sources/Chunks/...`.
+- Course-first vault layout: generated vaults open from `00 Start Here.md` into course materials first, then reference wiki, indexes, sources, and transcripts.
+- Source-backed course chapters: generated chapter drafts are post-processed so source references become Obsidian links to `04 Sources/Chunks/...`.
 - Linked section maps: `## Карта раздела` entries are normalized into links to wiki articles, chapter headings, or the chapter source appendix.
 - Compact course prompts: `draft-course-materials` uses a small default source budget and exposes `--max-topics` / `--max-chunk-chars` for larger-context models.
 
@@ -77,7 +78,7 @@ That run produced:
 - 102 drafted course material chapters
 - an Obsidian vault with 9,340 wikilinks and 0 missing wikilinks
 
-The generated vault includes wiki articles, source chunk notes, transcript notes, catalog indexes, and a `Course Materials/` section designed to read like course reference material rather than raw meeting notes.
+The generated vault includes course reference materials, wiki articles, source chunk notes, transcript notes, and catalog indexes.
 
 ## Requirements
 
@@ -401,15 +402,15 @@ Deferred topics are still used in later stages:
 - `build-catalog` writes merge suggestions to `raw-data/catalog/merge_suggestions.json`.
 - `build-course-plan` turns catalog categories into Course Materials chapters.
 - `draft-course-materials` can include deferred topics and their chunk text in chapter drafts.
-- `build-vault` writes `Index/Deferred Topics.md`, catalog pages, source chunk links, and Course Materials appendices.
+- `build-vault` writes `03 Indexes/Deferred Topics.md`, catalog pages, source chunk links, and course-material appendices.
 
 Deferred topics are not used for:
 
-- standalone files under `Wiki/`
+- standalone files under `02 Reference Wiki/`
 - `draft-articles`
 - article source packs under `raw-data/article_plan/source_packs/`
 
-This is intentional. Standalone wiki articles should be reasonably evidence-backed; deferred topics remain findable through catalog pages, Course Materials, source chunks, and the Deferred Topics index.
+This is intentional. Standalone wiki articles should be reasonably evidence-backed; deferred topics remain findable through catalog pages, course materials, source chunks, and the Deferred Topics index.
 
 Some extracted items may not enter `deferred` at all. `topics`, `terms`, `practices`, `mistakes`, and `questions` are preserved inside extracted knowledge JSON and topic indexes, but only `wiki_candidates` are considered for standalone article planning.
 
@@ -465,28 +466,29 @@ Generated files are ignored by default:
 
 `build-vault` treats these vault folders as generated output and rewrites them on every run:
 
-- `Wiki/`
-- `Index/`
-- `Sources/`
-- `90 Transcripts/`
-- `Course Materials/`
+- `01 Course Materials/`
+- `02 Reference Wiki/`
+- `03 Indexes/`
+- `04 Sources/`
+- `05 Transcripts/`
+- `99 System/`
 
 Keep manual Obsidian notes outside those managed folders, or commit/back them up before rebuilding the vault.
 
 The vault contains:
 
-- `00 Home.md`
-- `Course Materials/`
-- `Index/`
-- `Index/Catalog/`
-- `Wiki/`
-- `Sources/`
-- `90 Transcripts.md`
-- `90 Transcripts/`
+- `00 Start Here.md`: the entry point for the generated vault.
+- `01 Course Materials/`: course-reference chapters and the course-materials index.
+- `02 Reference Wiki/`: standalone source-backed wiki articles.
+- `03 Indexes/`: article, domain, source, deferred-topic, unlinked-mention, and catalog indexes.
+- `03 Indexes/Catalog/`: higher-level catalog category pages.
+- `04 Sources/`: source chunk notes linked back to generated articles and transcripts.
+- `05 Transcripts/`: transcript notes and `00 Transcripts.md`.
+- `99 System/`: generated support files for unresolved source references.
 
 Course material pages are post-processed during `build-vault`:
 
-- source references such as `video_id:abc123#0004`, `[abc123#0004]`, `source://...`, and model-generated Markdown source links are normalized to `[[Sources/Chunks/abc123/0004|abc123/0004]]`
+- source references such as `video_id:abc123#0004`, `[abc123#0004]`, `source://...`, and model-generated Markdown source links are normalized to `[[04 Sources/Chunks/abc123/0004|abc123/0004]]`
 - known generated section headings are localized to `[wiki].language`, so English vaults do not keep Russian template headings such as `Карта раздела` or `Источники`
 - unknown course-map entries are linked to a matching local chapter heading when possible
 - remaining map entries link to the chapter's full source appendix instead of becoming dead text
