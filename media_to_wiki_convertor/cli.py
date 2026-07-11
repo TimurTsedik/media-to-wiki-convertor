@@ -112,11 +112,11 @@ def print_status(config: PipelineConfig) -> None:
     records = read_manifest(config.paths.raw_data)
 
     say("Media To Wiki Convertor pipeline")
-    say(f"video_source: {config.paths.video_source}")
+    say(f"media_source: {config.paths.video_source}")
     say(f"raw_data:     {config.paths.raw_data}")
     say(f"vault:        {config.paths.vault}")
     say(f"manifest:     {manifest_path(config.paths.raw_data)}")
-    say(f"videos:       {len(records)}")
+    say(f"media:        {len(records)}")
     say(f"audio_wav:    {count_existing_audio(config.paths.raw_data)}")
     say(f"transcripts:  {count_existing_transcripts(config.paths.raw_data)}")
     say(f"chunks:       {count_existing_chunks(config.paths.raw_data)}")
@@ -250,7 +250,7 @@ def extract_audio(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
     if not records:
-        say("No videos in manifest.")
+        say("No media files in manifest.")
         say("Run `python3 -m media_to_wiki_convertor discover` first.")
         return 0
     if not has_ffmpeg():
@@ -353,7 +353,7 @@ def transcribe(config: PipelineConfig) -> int:
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
     if not records:
-        say("No videos in manifest.")
+        say("No media files in manifest.")
         say("Run `python3 -m media_to_wiki_convertor discover` or `import-list` first.")
         return 0
     if config.transcription.engine != "mlx-whisper":
@@ -455,7 +455,7 @@ def chunk_transcripts(
     ensure_raw_layout(config.paths.raw_data)
     records = read_manifest(config.paths.raw_data)
     if not records:
-        say("No videos in manifest.")
+        say("No media files in manifest.")
         say("Run `python3 -m media_to_wiki_convertor discover` or `import-list` first.")
         return 0
 
@@ -515,7 +515,7 @@ def chunk_transcripts(
                 f"in {elapsed}: chunks={result.created}, dir={result.output_dir}"
             )
 
-    say(f"Chunking complete: created_chunks={created}, skipped_videos={skipped}, failed={failed}")
+    say(f"Chunking complete: created_chunks={created}, skipped_media={skipped}, failed={failed}")
     return 1 if failed else 0
 
 
@@ -1168,17 +1168,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     discover_parser = subparsers.add_parser(
         "discover",
-        help="Scan the read-only video source and write manifest.",
+        help="Scan the read-only media source and write manifest.",
     )
     discover_parser.add_argument(
         "--source",
         type=Path,
         default=None,
-        help="Override video source directory for this run.",
+        help="Override media source directory for this run.",
     )
     import_parser = subparsers.add_parser(
         "import-list",
-        help="Build manifest from a text file containing one video path per line.",
+        help="Build manifest from a text file containing one media path per line.",
     )
     import_parser.add_argument(
         "--file",
