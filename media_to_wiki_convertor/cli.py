@@ -1150,6 +1150,7 @@ def build_parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--force", action="store_true")
 
     config_parser = subparsers.add_parser("config", help="Update config.toml project settings.")
+    config_parser.add_argument("--media-source", type=Path, default=None)
     config_parser.add_argument("--videos", type=Path, default=None)
     config_parser.add_argument("--raw", type=Path, default=None)
     config_parser.add_argument("--vault", type=Path, default=None)
@@ -1364,6 +1365,7 @@ def main(argv: list[str] | None = None) -> int:
         update_project_config(
             config_path,
             ProjectSettings(
+                media_source=args.media_source,
                 videos=args.videos,
                 raw=args.raw,
                 vault=args.vault,

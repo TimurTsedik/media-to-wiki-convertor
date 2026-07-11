@@ -35,6 +35,14 @@ def test_import_transcript_parser_accepts_required_arguments() -> None:
     assert args.force is True
 
 
+def test_config_parser_accepts_media_source_alias() -> None:
+    args = build_parser().parse_args(["config", "--media-source", "recordings"])
+
+    assert args.command == "config"
+    assert args.media_source == Path("recordings")
+    assert args.videos is None
+
+
 def make_config(tmp_path: Path) -> PipelineConfig:
     return PipelineConfig(
         paths=PipelinePaths(

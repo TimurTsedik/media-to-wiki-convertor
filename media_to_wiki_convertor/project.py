@@ -96,6 +96,7 @@ class ProjectInitResult:
 
 @dataclass(frozen=True)
 class ProjectSettings:
+    media_source: Path | None = None
     videos: Path | None = None
     raw: Path | None = None
     vault: Path | None = None
@@ -126,6 +127,8 @@ def update_project_config(config_path: Path, settings: ProjectSettings) -> None:
     replacements: dict[str, str] = {}
     if settings.videos is not None:
         replacements["video_source"] = path_value(settings.videos)
+    if settings.media_source is not None:
+        replacements["video_source"] = path_value(settings.media_source)
     if settings.raw is not None:
         replacements["raw_data"] = path_value(settings.raw)
     if settings.vault is not None:

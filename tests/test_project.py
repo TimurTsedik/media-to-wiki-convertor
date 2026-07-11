@@ -63,6 +63,23 @@ def test_update_project_config_changes_only_requested_values(tmp_path: Path) -> 
     assert 'model = "mlx-community/whisper-medium"' in text
 
 
+def test_update_project_config_prefers_media_source_over_legacy_videos(tmp_path: Path) -> None:
+    target = tmp_path / "my-training"
+    init_project(target)
+
+    update_project_config(
+        target / "config.toml",
+        ProjectSettings(
+            media_source=Path("./recordings"),
+            videos=Path("./videos"),
+        ),
+    )
+
+    text = (target / "config.toml").read_text(encoding="utf-8")
+    assert 'video_source = "./recordings"' in text
+    assert 'video_source = "./videos"' not in text
+
+
 def test_config_command_uses_global_config_path(tmp_path: Path, monkeypatch) -> None:
     project_a = tmp_path / "project-a"
     project_b = tmp_path / "project-b"
