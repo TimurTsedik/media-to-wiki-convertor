@@ -96,14 +96,14 @@ Steps:
 - [x] Update changelog.
 - [x] Search docs for stale primary `--videos` wording.
 - [x] Update backlog task status.
-- [ ] Commit.
+- [x] Commit.
 
 ## Final Verification
 
 Steps:
 
-- [ ] Run `.venv/bin/python -m pytest -p no:cacheprovider -q`.
-- [ ] Run `env RUFF_CACHE_DIR=/private/tmp/media-to-wiki-ruff-cache .venv/bin/python -m ruff check .`.
-- [ ] Run `.venv/bin/media-to-wiki-convertor --help`.
+- [x] Run `.venv/bin/python -m pytest -p no:cacheprovider -q`.
+- [x] Run `env RUFF_CACHE_DIR=/private/tmp/media-to-wiki-ruff-cache .venv/bin/python -m ruff check .`.
+- [x] Run `.venv/bin/media-to-wiki-convertor --help`.
 - [ ] Push `main`.
 - [ ] Check GitHub Actions.
