@@ -1085,7 +1085,7 @@ def build_vault(config: PipelineConfig) -> int:
 
 def pipeline_stages() -> dict[str, PipelineStage]:
     return {
-        "discover": PipelineStage("discover", lambda config: discover(config)),
+        "discover": PipelineStage("discover", lambda config: 0 if discover(config) >= 0 else 1),
         "extract-audio": PipelineStage("extract-audio", lambda config: extract_audio(config)),
         "validate-audio": PipelineStage("validate-audio", lambda config: validate_audio(config)),
         "transcribe": PipelineStage("transcribe", lambda config: transcribe(config)),
