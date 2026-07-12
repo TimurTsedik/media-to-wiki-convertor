@@ -58,6 +58,17 @@ def make_config(tmp_path: Path) -> PipelineConfig:
     )
 
 
+def test_discover_pipeline_stage_succeeds_when_media_files_are_found(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    videos_dir = config.paths.media_source
+    videos_dir.mkdir(parents=True)
+    (videos_dir / "lesson.mp4").write_bytes(b"fake video bytes")
+
+    stage = cli.pipeline_stages()["discover"]
+
+    assert stage.run(config) == 0
+
+
 def test_transcribe_writes_failed_run_event(tmp_path: Path, monkeypatch) -> None:
     config = make_config(tmp_path)
     record = VideoRecord(

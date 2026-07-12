@@ -14,6 +14,7 @@ media_extensions = [
   ".mp4",
   ".mov",
   ".mkv",
+  ".webm",
   ".mp3",
   ".m4a",
   ".wav",

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Fix `run`/`run --yes` always reporting the `discover` stage as failed whenever
+  any media files were found: the stage's exit code was the discovered-file
+  count instead of a 0/1 status, so any non-empty media source aborted the
+  pipeline before `extract-audio` ever ran.
+- Add `.webm` to the default `media_extensions` list (`init` template and
+  `config.example.toml`) so common downloaded video files are discovered
+  out of the box.
 - Switch generated Obsidian vaults to a course-first numbered layout:
   `00 Start Here.md`, `01 Course Materials/`, `02 Reference Wiki/`, `03 Indexes/`,
   `04 Sources/`, `05 Transcripts/`, and `99 System/`.
